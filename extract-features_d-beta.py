@@ -5,7 +5,7 @@ import pickle
 import datetime
 import wfdb
 
-from utils import preprocess_ecg_no_truncate_125hz, preprocess_ppg_no_truncate_125hz
+from utils import preprocess_ecg_no_truncate_500hz, preprocess_ppg_no_truncate_500hz
 
 import torch
 
@@ -15,7 +15,8 @@ waveforms_dir_path = mcmed_dir_path + "/waveforms"
 
 signalmcmed_dir_path = "INSERT-PATH-HERE" ###########################################################
 
-model_path = "INSERT-PATH-HERE/papagei_s.pt" ########################################################
+model_path = "INSERT-PATH-HERE/D-BETA/sample.pt" ########################################################
+model_config_path = "INSERT-PATH-HERE/D-BETA/configs/config.json" ################################
 
 sec_to_extract = 600
 batch_size = 128 # (128 should be fine on 40 GB GPU, for both single-lead and 12-lead ECGs)
@@ -27,32 +28,10 @@ expected_ppg_fs = 125
 # load the model:
 ################################################################################
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), "papagei-foundation-model"))
-from linearprobing.utils import load_model_without_module_prefix
-from models.resnet import ResNet1DMoE
+sys.path.append(os.path.join(os.path.dirname(__file__), "D-BETA"))
+from models.processor import get_model, get_ecg_feats
 
-model_config = {
-    'base_filters': 32,
-    'kernel_size': 3,
-    'stride': 2,
-    'groups': 1,
-    'n_block': 18,
-    'n_classes': 512, # Embedding dimension
-    'n_experts': 3
-}
-
-model = ResNet1DMoE(
-    in_channels=1,
-    base_filters=model_config['base_filters'],
-    kernel_size=model_config['kernel_size'],
-    stride=model_config['stride'],
-    groups=model_config['groups'],
-    n_block=model_config['n_block'],
-    n_classes=model_config['n_classes'],
-    n_experts=model_config['n_experts']
-)
-
-model = load_model_without_module_prefix(model, model_path)
+model = get_model(config_path=model_config_path, checkpoint_path=model_path)
 model.eval()
 model.cuda()
 print(model)
@@ -152,14 +131,14 @@ for i, csn in enumerate(csns):
     # print(ppg_synced_signal.shape)
 
     try:
-        ecg_signal_preprocessed = preprocess_ecg_no_truncate_125hz(ecg_synced_signal, expected_ecg_fs) # (shape: [1, sec_to_extract*125])
+        ecg_signal_preprocessed = preprocess_ecg_no_truncate_500hz(ecg_synced_signal, expected_ecg_fs) # (shape: [1, sec_to_extract*500])
         # print(ecg_signal_preprocessed.shape)
     except:
         print("Error when trying to preprocess the ECG signal for %s" % csn_string)
         continue
 
     try:
-        ppg_signal_preprocessed = preprocess_ppg_no_truncate_125hz(ppg_synced_signal, expected_ppg_fs) # (shape: [1, sec_to_extract*125])
+        ppg_signal_preprocessed = preprocess_ppg_no_truncate_500hz(ppg_synced_signal, expected_ppg_fs) # (shape: [1, sec_to_extract*500])
         # print(ppg_signal_preprocessed.shape)
     except:
         print("Error when trying to preprocess the PPG signal for %s" % csn_string)
@@ -168,13 +147,13 @@ for i, csn in enumerate(csns):
     # print(ecg_signal_preprocessed.shape)
     # print(ppg_signal_preprocessed.shape)
 
-    ecg_signal_preprocessed = torch.from_numpy(ecg_signal_preprocessed.astype(np.float32)).cuda() # (shape: [1, sec_to_extract*125])
+    ecg_signal_preprocessed = torch.from_numpy(ecg_signal_preprocessed.astype(np.float32)).cuda() # (shape: [1, sec_to_extract*500])
     # print(ecg_signal_preprocessed.shape)
-    ecg_signal_preprocessed = ecg_signal_preprocessed.squeeze(0)  # (shape: [sec_to_extract*125])
+    ecg_signal_preprocessed = ecg_signal_preprocessed.squeeze(0)  # (shape: [sec_to_extract*500])
     # print(ecg_signal_preprocessed.shape)
-    ecg_10sec_segments = ecg_signal_preprocessed.view(60, 1250) # (shape: [60, 1250])
+    ecg_10sec_segments = ecg_signal_preprocessed.view(60, 5000) # (shape: [60, 5000])
     # print(ecg_10sec_segments.shape)
-    ecg_10sec_segments = ecg_10sec_segments.unsqueeze(1) # (shape: [60, 1, 1250])
+    ecg_10sec_segments = ecg_10sec_segments.unsqueeze(1) # (shape: [60, 1, 5000])
     # print(ecg_10sec_segments.shape)
     #
     dataset = SignalDataset(ecg_10sec_segments)
@@ -182,23 +161,24 @@ for i, csn in enumerate(csns):
     #
     features_list_ecg = []
     for batch_i, ecgs in enumerate(loader):
-        ecgs = ecgs.cuda() # (shape: (batch_size, 1, 1250))
+        ecgs = ecgs.cuda().squeeze(1) # (shape: (batch_size, 5000))
         # print(ecgs.shape)
         with torch.no_grad():
-            outputs = model(ecgs)
-            features_ecg = outputs[0].cpu() # (shape: [batch_size, 512])
+            signals = torch.zeros((ecgs.shape[0], 12, ecgs.shape[1]), dtype=ecgs.dtype).cuda() # (shape: [batch_size, 12, 5000]])
+            signals[:, 1, :] = ecgs # (assuming lead order: ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6'])
+            features_ecg = get_ecg_feats(model, signals).cpu() # (shape: [batch_size, 768])
             # print(features_ecg.shape)
             features_list_ecg.append(features_ecg)
-    features_ecg = torch.cat(features_list_ecg, dim=0)  # (shape: [60, 512])
+    features_ecg = torch.cat(features_list_ecg, dim=0)  # (shape: [60, 768])
     # print(features_ecg.shape)
 
-    ppg_signal_preprocessed = torch.from_numpy(ppg_signal_preprocessed.astype(np.float32)).cuda() # (shape: [1, sec_to_extract*125])
+    ppg_signal_preprocessed = torch.from_numpy(ppg_signal_preprocessed.astype(np.float32)).cuda() # (shape: [1, sec_to_extract*500])
     # print(ppg_signal_preprocessed.shape)
-    ppg_signal_preprocessed = ppg_signal_preprocessed.squeeze(0)  # (shape: [sec_to_extract*125])
+    ppg_signal_preprocessed = ppg_signal_preprocessed.squeeze(0)  # (shape: [sec_to_extract*500])
     # print(ppg_signal_preprocessed.shape)
-    ppg_10sec_segments = ppg_signal_preprocessed.view(60, 1250) # (shape: [60, 1250])
+    ppg_10sec_segments = ppg_signal_preprocessed.view(60, 5000) # (shape: [60, 5000])
     # print(ppg_10sec_segments.shape)
-    ppg_10sec_segments = ppg_10sec_segments.unsqueeze(1) # (shape: [60, 1, 1250])
+    ppg_10sec_segments = ppg_10sec_segments.unsqueeze(1) # (shape: [60, 1, 5000])
     # print(ppg_10sec_segments.shape)
     #
     dataset = SignalDataset(ppg_10sec_segments)
@@ -206,29 +186,30 @@ for i, csn in enumerate(csns):
     #
     features_list_ppg = []
     for batch_i, ppgs in enumerate(loader):
-        ppgs = ppgs.cuda() # (shape: (batch_size, 1, 1250))
+        ppgs = ppgs.cuda().squeeze(1) # (shape: (batch_size, 5000))
         # print(ppgs.shape)
         with torch.no_grad():
-            outputs = model(ppgs)
-            features_ppg = outputs[0].cpu() # (shape: [batch_size, 512])
+            signals = torch.zeros((ppgs.shape[0], 12, ppgs.shape[1]), dtype=ppgs.dtype).cuda() # (shape: [batch_size, 12, 5000]])
+            signals[:, 1, :] = ppgs # (assuming lead order: ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6'])
+            features_ppg = get_ecg_feats(model, signals).cpu() # (shape: [batch_size, 768])
             # print(features_ppg.shape)
             features_list_ppg.append(features_ppg)
-    features_ppg = torch.cat(features_list_ppg, dim=0)  # (shape: [60, 512])
+    features_ppg = torch.cat(features_list_ppg, dim=0)  # (shape: [60, 768])
     # print(features_ppg.shape)
 
-    mean_feature_10min_ecg = torch.mean(features_ecg, dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_5min_ecg = torch.mean(features_ecg[0:30], dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_2min_ecg = torch.mean(features_ecg[0:12], dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_1min_ecg = torch.mean(features_ecg[0:6], dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_30sec_ecg = torch.mean(features_ecg[0:3], dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_10sec_ecg = features_ecg[0].unsqueeze(0) # (shape: [1, 512])
+    mean_feature_10min_ecg = torch.mean(features_ecg, dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_5min_ecg = torch.mean(features_ecg[0:30], dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_2min_ecg = torch.mean(features_ecg[0:12], dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_1min_ecg = torch.mean(features_ecg[0:6], dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_30sec_ecg = torch.mean(features_ecg[0:3], dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_10sec_ecg = features_ecg[0].unsqueeze(0) # (shape: [1, 768])
     #
-    mean_feature_10min_ppg = torch.mean(features_ppg, dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_5min_ppg = torch.mean(features_ppg[0:30], dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_2min_ppg = torch.mean(features_ppg[0:12], dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_1min_ppg = torch.mean(features_ppg[0:6], dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_30sec_ppg = torch.mean(features_ppg[0:3], dim=0).unsqueeze(0) # (shape: [1, 512])
-    mean_feature_10sec_ppg = features_ppg[0].unsqueeze(0) # (shape: [1, 512])
+    mean_feature_10min_ppg = torch.mean(features_ppg, dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_5min_ppg = torch.mean(features_ppg[0:30], dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_2min_ppg = torch.mean(features_ppg[0:12], dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_1min_ppg = torch.mean(features_ppg[0:6], dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_30sec_ppg = torch.mean(features_ppg[0:3], dim=0).unsqueeze(0) # (shape: [1, 768])
+    mean_feature_10sec_ppg = features_ppg[0].unsqueeze(0) # (shape: [1, 768])
 
     features_10min_ecg_list.append(mean_feature_10min_ecg)
     features_5min_ecg_list.append(mean_feature_5min_ecg)
@@ -267,12 +248,12 @@ print(len(features_1min_ppg_list))
 print(len(features_30sec_ppg_list))
 print(len(features_10sec_ppg_list))
 
-features_10min_ecg = torch.cat(features_10min_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_5min_ecg = torch.cat(features_5min_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_2min_ecg = torch.cat(features_2min_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_1min_ecg = torch.cat(features_1min_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_30sec_ecg = torch.cat(features_30sec_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_10sec_ecg = torch.cat(features_10sec_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
+features_10min_ecg = torch.cat(features_10min_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_5min_ecg = torch.cat(features_5min_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_2min_ecg = torch.cat(features_2min_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_1min_ecg = torch.cat(features_1min_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_30sec_ecg = torch.cat(features_30sec_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_10sec_ecg = torch.cat(features_10sec_ecg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
 print(features_10min_ecg.shape)
 print(features_5min_ecg.shape)
 print(features_2min_ecg.shape)
@@ -280,12 +261,12 @@ print(features_1min_ecg.shape)
 print(features_30sec_ecg.shape)
 print(features_10sec_ecg.shape)
 
-features_10min_ppg = torch.cat(features_10min_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_5min_ppg = torch.cat(features_5min_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_2min_ppg = torch.cat(features_2min_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_1min_ppg = torch.cat(features_1min_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_30sec_ppg = torch.cat(features_30sec_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
-features_10sec_ppg = torch.cat(features_10sec_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 512])
+features_10min_ppg = torch.cat(features_10min_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_5min_ppg = torch.cat(features_5min_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_2min_ppg = torch.cat(features_2min_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_1min_ppg = torch.cat(features_1min_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_30sec_ppg = torch.cat(features_30sec_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
+features_10sec_ppg = torch.cat(features_10sec_ppg_list, dim=0).numpy()  # (shape: [num_preprocessdd_csns, 768])
 print(features_10min_ppg.shape)
 print(features_5min_ppg.shape)
 print(features_2min_ppg.shape)
@@ -293,31 +274,31 @@ print(features_1min_ppg.shape)
 print(features_30sec_ppg.shape)
 print(features_10sec_ppg.shape)
 
-with open(signalmcmed_dir_path + "/extract-features_papagei_csns.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_csns.pkl", "wb") as f:
     pickle.dump(preprocessed_csns, f)
 
-with open(signalmcmed_dir_path + "/extract-features_papagei_10min_ecg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_10min_ecg.pkl", "wb") as f:
     pickle.dump(features_10min_ecg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_5min_ecg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_5min_ecg.pkl", "wb") as f:
     pickle.dump(features_5min_ecg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_2min_ecg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_2min_ecg.pkl", "wb") as f:
     pickle.dump(features_2min_ecg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_1min_ecg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_1min_ecg.pkl", "wb") as f:
     pickle.dump(features_1min_ecg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_30sec_ecg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_30sec_ecg.pkl", "wb") as f:
     pickle.dump(features_30sec_ecg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_10sec_ecg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_10sec_ecg.pkl", "wb") as f:
     pickle.dump(features_10sec_ecg, f)
 
-with open(signalmcmed_dir_path + "/extract-features_papagei_10min_ppg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_10min_ppg.pkl", "wb") as f:
     pickle.dump(features_10min_ppg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_5min_ppg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_5min_ppg.pkl", "wb") as f:
     pickle.dump(features_5min_ppg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_2min_ppg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_2min_ppg.pkl", "wb") as f:
     pickle.dump(features_2min_ppg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_1min_ppg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_1min_ppg.pkl", "wb") as f:
     pickle.dump(features_1min_ppg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_30sec_ppg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_30sec_ppg.pkl", "wb") as f:
     pickle.dump(features_30sec_ppg, f)
-with open(signalmcmed_dir_path + "/extract-features_papagei_10sec_ppg.pkl", "wb") as f:
+with open(signalmcmed_dir_path + "/extract-features_d-beta_10sec_ppg.pkl", "wb") as f:
     pickle.dump(features_10sec_ppg, f)
