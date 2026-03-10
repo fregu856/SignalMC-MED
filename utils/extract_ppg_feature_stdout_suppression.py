@@ -1,4 +1,3 @@
-# camera-ready?
 from pyPPG import PPG, Fiducials, Biomarkers
 from pyPPG.datahandling import plot_fiducials
 import pyPPG.preproc as PP

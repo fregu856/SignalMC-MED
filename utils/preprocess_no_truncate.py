@@ -1,4 +1,3 @@
-# camera-ready?
 import neurokit2 as nk
 import numpy as np
 import scipy.signal
