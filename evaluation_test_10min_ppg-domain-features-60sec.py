@@ -23,7 +23,7 @@ debug = False
 
 mcmed_dir_path = "INSERT-PATH-HERE" #################################################################
 signalmcmed_dir_path = "INSERT-PATH-HERE" ###########################################################
-save_dir_path = signalmcmed_dir_path + "/evaluation_test_10min_chronos-bolt-small"
+save_dir_path = signalmcmed_dir_path + "/evaluation_test_10min_ppg-domain-features-60sec"
 os.makedirs(save_dir_path, exist_ok=True)
 
 
@@ -49,15 +49,12 @@ else:
     c_values = [1.0]
 
 
-with open(signalmcmed_dir_path + "/extract-features_chronos-bolt-small_10min_ecg.pkl", "rb") as f:
-    features_10min_ecg = pickle.load(f)
-print(features_10min_ecg.shape)
-with open(signalmcmed_dir_path + "/extract-features_chronos-bolt-small_10min_ppg.pkl", "rb") as f:
+with open(signalmcmed_dir_path + "/extract-features_ppg-domain-features-60sec_10min_ppg.pkl", "rb") as f:
     features_10min_ppg = pickle.load(f)
 print(features_10min_ppg.shape)
 # (all have shape: [num_csns, feature_dim])
 
-with open(signalmcmed_dir_path + "/extract-features_chronos-bolt-small_csns.pkl", "rb") as f:
+with open(signalmcmed_dir_path + "/extract-features_ppg-domain-features-60sec_csns.pkl", "rb") as f:
     preprocessed_csns = pickle.load(f)
 print(len(preprocessed_csns))
 
@@ -66,17 +63,13 @@ with open(signalmcmed_dir_path + "/signalmc-med_csns.pkl", "rb") as f:
     signalmcmed_csns = pickle.load(f)
 print(len(signalmcmed_csns))
 preprocessed_csns_filter = []
-features_10min_ecg_list = []
 features_10min_ppg_list = []
 for i in range(len(preprocessed_csns)):
     if preprocessed_csns[i] in signalmcmed_csns:
-        features_10min_ecg_list.append(features_10min_ecg[i])
         features_10min_ppg_list.append(features_10min_ppg[i])
         preprocessed_csns_filter.append(preprocessed_csns[i])
-features_10min_ecg = np.stack(features_10min_ecg_list, axis=0)
 features_10min_ppg = np.stack(features_10min_ppg_list, axis=0)
 preprocessed_csns = preprocessed_csns_filter
-print(features_10min_ecg.shape)
 print(features_10min_ppg.shape)
 print(len(preprocessed_csns))
 assert len(preprocessed_csns) == len(signalmcmed_csns)
@@ -120,74 +113,46 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("train_prop: %.2f (%d/%d) -- run %d/%d" % (train_prop, train_prop_i, len(train_props)-1, run_i, number_of_runs-1))
 
         train_ages = []
-        train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 age_values = visits_df[visits_df["CSN"] == csn]["Age"].values
                 assert len(age_values) == 1
                 train_ages.append(age_values[0])
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         print(len(train_ages))
-        print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
 
         val_ages = []
-        val_features_list_10min_ecg = []
         val_features_list_10min_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in val_csns:
                 age_values = visits_df[visits_df["CSN"] == csn]["Age"].values
                 assert len(age_values) == 1
                 val_ages.append(age_values[0])
-                val_features_list_10min_ecg.append(features_10min_ecg[i])
                 val_features_list_10min_ppg.append(features_10min_ppg[i])
-        val_features_10min_ecg = np.stack(val_features_list_10min_ecg, axis=0)
         val_features_10min_ppg = np.stack(val_features_list_10min_ppg, axis=0)
         print(len(val_ages))
-        print(val_features_10min_ecg.shape)
         print(val_features_10min_ppg.shape)
 
-        X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ages)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_val_10min_ecg = val_features_10min_ecg
         X_val_10min_ppg = val_features_10min_ppg
-        X_val_10min_ecg_ppg_mean = (X_val_10min_ecg + X_val_10min_ppg)/2.0
         y_val = np.array(val_ages)
 
-        maes_10min_ecg = []
-        pearsons_10min_ecg = []
         maes_10min_ppg = []
         pearsons_10min_ppg = []
-        maes_10min_ecg_ppg_mean = []
-        pearsons_10min_ecg_ppg_mean = []
         for alpha in alpha_values:
             print(alpha)
-
-            pipe = make_pipeline(StandardScaler(), Ridge(alpha=alpha))
-            pipe.fit(X_train_10min_ecg, y_train)
-            y_val_pred = pipe.predict(X_val_10min_ecg)
-            mae = np.mean(np.abs(y_val - y_val_pred))
-            maes_10min_ecg.append(mae)
-            pearson_corr, _ = pearsonr(y_val_pred, y_val)
-            pearsons_10min_ecg.append(pearson_corr)
 
             pipe = make_pipeline(StandardScaler(), Ridge(alpha=alpha))
             pipe.fit(X_train_10min_ppg, y_train)
@@ -197,35 +162,17 @@ for train_prop_i, train_prop in enumerate(train_props):
             pearson_corr, _ = pearsonr(y_val_pred, y_val)
             pearsons_10min_ppg.append(pearson_corr)
 
-            pipe = make_pipeline(StandardScaler(), Ridge(alpha=alpha))
-            pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-            y_val_pred = pipe.predict(X_val_10min_ecg_ppg_mean)
-            mae = np.mean(np.abs(y_val - y_val_pred))
-            maes_10min_ecg_ppg_mean.append(mae)
-            pearson_corr, _ = pearsonr(y_val_pred, y_val)
-            pearsons_10min_ecg_ppg_mean.append(pearson_corr)
-
-        best_idx_ecg = np.argmax(pearsons_10min_ecg)
-        best_alpha_ecg = alpha_values[best_idx_ecg]
-        #
         best_idx_ppg = np.argmax(pearsons_10min_ppg)
         best_alpha_ppg = alpha_values[best_idx_ppg]
-        #
-        best_idx_ecg_ppg_mean = np.argmax(pearsons_10min_ecg_ppg_mean)
-        best_alpha_ecg_ppg_mean = alpha_values[best_idx_ecg_ppg_mean]
 
         print("###############")
         print("###############")
         print("evaluated alpha range: %f -- %f" % (alpha_values[0], alpha_values[-1]))
         print(alpha_values)
-        print("optimal alpha according to ECG-only Pearson corr: %f" % best_alpha_ecg)
         print("optimal alpha according to PPG-only Pearson corr: %f" % best_alpha_ppg)
-        print("optimal alpha according to ECG-only + PPG-only (mean of features) Pearson corr: %f" % best_alpha_ecg_ppg_mean)
 
         plt.figure(1)
-        plt.plot(alpha_values, pearsons_10min_ecg, "^-", color="C0", label="ECG-only -- 10min")
         plt.plot(alpha_values, pearsons_10min_ppg, "^-", color="C1", label="PPG-only -- 10min")
-        plt.plot(alpha_values, pearsons_10min_ecg_ppg_mean, "^-", color="C3", label="ECG-only + PPG-only (mean of features) -- 10min")
         plt.ylabel("Pearson corr")
         plt.xlabel("alpha")
         plt.xscale("log")
@@ -239,7 +186,6 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
         train_sexs = []
-        train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
@@ -247,17 +193,13 @@ for train_prop_i, train_prop in enumerate(train_props):
                 assert len(sex_values) == 1
                 if sex_values[0] in ["M", "F"]:
                     train_sexs.append(sex_values[0])
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         train_sexs = list(map({"M": 0, "F": 1}.get, train_sexs))
         print(len(train_sexs))
-        print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
 
         val_sexs = []
-        val_features_list_10min_ecg = []
         val_features_list_10min_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in val_csns:
@@ -265,53 +207,29 @@ for train_prop_i, train_prop in enumerate(train_props):
                 assert len(sex_values) == 1
                 if sex_values[0] in ["M", "F"]:
                     val_sexs.append(sex_values[0])
-                    val_features_list_10min_ecg.append(features_10min_ecg[i])
                     val_features_list_10min_ppg.append(features_10min_ppg[i])
-        val_features_10min_ecg = np.stack(val_features_list_10min_ecg, axis=0)
         val_features_10min_ppg = np.stack(val_features_list_10min_ppg, axis=0)
         val_sexs = list(map({"M": 0, "F": 1}.get, val_sexs))
         print(len(val_sexs))
-        print(val_features_10min_ecg.shape)
         print(val_features_10min_ppg.shape)
 
-        X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_sexs)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_val_10min_ecg = val_features_10min_ecg
         X_val_10min_ppg = val_features_10min_ppg
-        X_val_10min_ecg_ppg_mean = (X_val_10min_ecg + X_val_10min_ppg)/2.0
         y_val = np.array(val_sexs)
 
-        auprcs_10min_ecg = []
-        rocaucs_10min_ecg = []
         auprcs_10min_ppg = []
         rocaucs_10min_ppg = []
-        auprcs_10min_ecg_ppg_mean = []
-        rocaucs_10min_ecg_ppg_mean = []
         for c_value in c_values:
             print(c_value)
-
-            pipe = make_pipeline(StandardScaler(), LogisticRegression(C=c_value, penalty="l2", solver="lbfgs", max_iter=2000))
-            pipe.fit(X_train_10min_ecg, y_train)
-            y_val_pred = pipe.predict(X_val_10min_ecg)
-            y_val_proba = pipe.predict_proba(X_val_10min_ecg)[:, 1]
-            rocauc = roc_auc_score(y_val, y_val_proba)
-            rocaucs_10min_ecg.append(rocauc)
-            auprc = average_precision_score(y_val, y_val_proba)
-            auprcs_10min_ecg.append(auprc)
 
             pipe = make_pipeline(StandardScaler(), LogisticRegression(C=c_value, penalty="l2", solver="lbfgs", max_iter=2000))
             pipe.fit(X_train_10min_ppg, y_train)
@@ -322,36 +240,17 @@ for train_prop_i, train_prop in enumerate(train_props):
             auprc = average_precision_score(y_val, y_val_proba)
             auprcs_10min_ppg.append(auprc)
 
-            pipe = make_pipeline(StandardScaler(), LogisticRegression(C=c_value, penalty="l2", solver="lbfgs", max_iter=2000))
-            pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-            y_val_pred = pipe.predict(X_val_10min_ecg_ppg_mean)
-            y_val_proba = pipe.predict_proba(X_val_10min_ecg_ppg_mean)[:, 1]
-            rocauc = roc_auc_score(y_val, y_val_proba)
-            rocaucs_10min_ecg_ppg_mean.append(rocauc)
-            auprc = average_precision_score(y_val, y_val_proba)
-            auprcs_10min_ecg_ppg_mean.append(auprc)
-
-        best_idx_ecg = np.argmax(rocaucs_10min_ecg)
-        best_c_ecg = c_values[best_idx_ecg]
-        #
         best_idx_ppg = np.argmax(rocaucs_10min_ppg)
         best_c_ppg = c_values[best_idx_ppg]
-        #
-        best_idx_ecg_ppg_mean = np.argmax(rocaucs_10min_ecg_ppg_mean)
-        best_c_ecg_ppg_mean = c_values[best_idx_ecg_ppg_mean]
 
         print("###############")
         print("###############")
         print("evaluated C range: %f -- %f" % (c_values[0], c_values[-1]))
         print(c_values)
-        print("optimal C according to ECG-only AUROC: %f" % best_c_ecg)
         print("optimal C according to PPG-only AUROC: %f" % best_c_ppg)
-        print("optimal C according to ECG-only + PPG-only (mean of features) AUROC: %f" % best_c_ecg_ppg_mean)
 
         plt.figure(1)
-        plt.plot(c_values, rocaucs_10min_ecg, "^-", color="C0", label="ECG-only -- 10min")
         plt.plot(c_values, rocaucs_10min_ppg, "^-", color="C1", label="PPG-only -- 10min")
-        plt.plot(c_values, rocaucs_10min_ecg_ppg_mean, "^-", color="C3", label="ECG-only + PPG-only (mean of features) -- 10min")
         plt.ylabel("AUROC")
         plt.xlabel("C")
         plt.xscale("log")
@@ -366,85 +265,87 @@ for train_prop_i, train_prop in enumerate(train_props):
 
 
 
-        all_tasks_pearson_values_ecg = []
-        all_tasks_mae_values_ecg = []
-        all_tasks_auroc_values_ecg = []
-        all_tasks_auprc_values_ecg = []
-        #
         all_tasks_pearson_values_ppg = []
         all_tasks_mae_values_ppg = []
         all_tasks_auroc_values_ppg = []
         all_tasks_auprc_values_ppg = []
-        #
-        all_tasks_pearson_values_ecg_ppg_mean = []
-        all_tasks_mae_values_ecg_ppg_mean = []
-        all_tasks_auroc_values_ecg_ppg_mean = []
-        all_tasks_auprc_values_ecg_ppg_mean = []
 
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
         print("1. Age regression:")
         train_ages = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
+        # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 age_values = visits_df[visits_df["CSN"] == csn]["Age"].values
                 assert len(age_values) == 1
                 train_ages.append(age_values[0])
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+                # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
+        # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ages))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
+        # print(train_features_10min_ecg_ppg.shape)
 
         test_ages = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
+        # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 age_values = visits_df[visits_df["CSN"] == csn]["Age"].values
                 assert len(age_values) == 1
                 test_ages.append(age_values[0])
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+                # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
+        # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ages))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
+        # print(test_features_10min_ecg_ppg.shape)
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ages)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ages)
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg.append(pearson_corr)
-        all_tasks_mae_values_ecg.append(mae)
-        print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg.append(pearson_corr)
+        # all_tasks_mae_values_ecg.append(mae)
+        # print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
 
         pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ppg))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -455,14 +356,23 @@ for train_prop_i, train_prop in enumerate(train_props):
         all_tasks_mae_values_ppg.append(mae)
         print("10min -- alpha: %f -- PPG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ppg, pearson_corr, mae))
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
-        all_tasks_mae_values_ecg_ppg_mean.append(mae)
-        print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg))
+        # pipe.fit(X_train_10min_ecg_ppg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg.append(mae)
+        # print("10min -- alpha: %f -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, pearson_corr, mae))
+
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg_mean.append(mae)
+        # print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
 
 
 
@@ -471,178 +381,85 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
         print("2. Sex classification ('M' (negative class) vs 'F'):")
         train_sexs = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
+        # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 sex_values = visits_df[visits_df["CSN"] == csn]["Gender"].values
                 assert len(sex_values) == 1
                 if sex_values[0] in ["M", "F"]:
                     train_sexs.append(sex_values[0])
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+                    # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
+        # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         train_sexs = list(map({"M": 0, "F": 1}.get, train_sexs))
         print(len(train_sexs))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
+        # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_sexs.count(1)/float(len(train_sexs))))
 
         test_sexs = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
+        # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 sex_values = visits_df[visits_df["CSN"] == csn]["Gender"].values
                 assert len(sex_values) == 1
                 if sex_values[0] in ["M", "F"]:
                     test_sexs.append(sex_values[0])
-                    test_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # test_features_list_10min_ecg.append(features_10min_ecg[i])
                     test_features_list_10min_ppg.append(features_10min_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
-        test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
-        test_sexs = list(map({"M": 0, "F": 1}.get, test_sexs))
-        print(len(test_sexs))
-        print(test_features_10min_ecg.shape)
-        print(test_features_10min_ppg.shape)
-        print("proportion of positive class in train: %.4f" % (test_sexs.count(1)/float(len(test_sexs))))
-
-        X_train_10min_ecg = train_features_10min_ecg
-        X_train_10min_ppg = train_features_10min_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
-        y_train = np.array(train_sexs)
-        #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
-        train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
-        X_train_10min_ppg = X_train_10min_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
-        y_train = y_train[train_inds]
-        print(len(y_train))
-        print(X_train_10min_ecg.shape)
-        print(X_train_10min_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
-
-        X_test_10min_ecg = test_features_10min_ecg
-        X_test_10min_ppg = test_features_10min_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
-        y_test = np.array(test_sexs)
-
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
-
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ppg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ppg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ppg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ppg.append(rocauc)
-        all_tasks_auprc_values_ppg.append(auprc)
-        print("10min -- C: %f -- PPG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ppg, rocauc, auprc))
-
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
-
-
-
-
-        print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-        print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-        print("3. ED_dispo classification ('Discharge' (negative class) vs 'Inpatient'+'Observation'+'ICU' (positive class)):")
-        train_dispos = []
-        train_features_list_10min_ecg = []
-        train_features_list_10min_ppg = []
-        # train_features_list_10min_ecg_ppg = []
-        for i, csn in enumerate(preprocessed_csns):
-            if csn in train_csns:
-                dispo_values = visits_df[visits_df["CSN"] == csn]["ED_dispo"].values
-                assert len(dispo_values) == 1
-                train_dispos.append(dispo_values[0])
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
-                train_features_list_10min_ppg.append(features_10min_ppg[i])
-                # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
-        train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
-        # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
-        train_dispos = list(map({"Discharge": 0, "Inpatient": 1, "ICU": 1, "Observation": 1}.get, train_dispos))
-        print(len(train_dispos))
-        print(train_features_10min_ecg.shape)
-        print(train_features_10min_ppg.shape)
-        # print(train_features_10min_ecg_ppg.shape)
-        print("proportion of positive class in train: %.4f" % (train_dispos.count(1)/float(len(train_dispos))))
-
-        test_dispos = []
-        test_features_list_10min_ecg = []
-        test_features_list_10min_ppg = []
-        # test_features_list_10min_ecg_ppg = []
-        for i, csn in enumerate(preprocessed_csns):
-            if csn in test_csns:
-                dispo_values = visits_df[visits_df["CSN"] == csn]["ED_dispo"].values
-                assert len(dispo_values) == 1
-                test_dispos.append(dispo_values[0])
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
-                test_features_list_10min_ppg.append(features_10min_ppg[i])
-                # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+                    # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
-        test_dispos = list(map({"Discharge": 0, "Inpatient": 1, "ICU": 1, "Observation": 1}.get, test_dispos))
-        print(len(test_dispos))
-        print(test_features_10min_ecg.shape)
+        test_sexs = list(map({"M": 0, "F": 1}.get, test_sexs))
+        print(len(test_sexs))
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
-        print("proportion of positive class in test: %.4f" % (test_dispos.count(1)/float(len(test_dispos))))
+        print("proportion of positive class in test: %.4f" % (test_sexs.count(1)/float(len(test_sexs))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
-        y_train = np.array(train_dispos)
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        y_train = np.array(train_sexs)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
-        y_test = np.array(test_dispos)
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        y_test = np.array(test_sexs)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -664,15 +481,130 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+
+
+
+
+        print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
+        print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
+        print("3. ED_dispo classification ('Discharge' (negative class) vs 'Inpatient'+'Observation'+'ICU' (positive class)):")
+        train_dispos = []
+        # train_features_list_10min_ecg = []
+        train_features_list_10min_ppg = []
+        # train_features_list_10min_ecg_ppg = []
+        for i, csn in enumerate(preprocessed_csns):
+            if csn in train_csns:
+                dispo_values = visits_df[visits_df["CSN"] == csn]["ED_dispo"].values
+                assert len(dispo_values) == 1
+                train_dispos.append(dispo_values[0])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
+                train_features_list_10min_ppg.append(features_10min_ppg[i])
+                # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
+        # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
+        train_dispos = list(map({"Discharge": 0, "Inpatient": 1, "ICU": 1, "Observation": 1}.get, train_dispos))
+        print(len(train_dispos))
+        # print(train_features_10min_ecg.shape)
+        print(train_features_10min_ppg.shape)
+        # print(train_features_10min_ecg_ppg.shape)
+        print("proportion of positive class in train: %.4f" % (train_dispos.count(1)/float(len(train_dispos))))
+
+        test_dispos = []
+        # test_features_list_10min_ecg = []
+        test_features_list_10min_ppg = []
+        # test_features_list_10min_ecg_ppg = []
+        for i, csn in enumerate(preprocessed_csns):
+            if csn in test_csns:
+                dispo_values = visits_df[visits_df["CSN"] == csn]["ED_dispo"].values
+                assert len(dispo_values) == 1
+                test_dispos.append(dispo_values[0])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
+                test_features_list_10min_ppg.append(features_10min_ppg[i])
+                # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
+        # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
+        test_dispos = list(map({"Discharge": 0, "Inpatient": 1, "ICU": 1, "Observation": 1}.get, test_dispos))
+        print(len(test_dispos))
+        # print(test_features_10min_ecg.shape)
+        print(test_features_10min_ppg.shape)
+        # print(test_features_10min_ecg_ppg.shape)
+        print("proportion of positive class in test: %.4f" % (test_dispos.count(1)/float(len(test_dispos))))
+
+        # X_train_10min_ecg = train_features_10min_ecg
+        X_train_10min_ppg = train_features_10min_ppg
+        # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        y_train = np.array(train_dispos)
+        #######
+        indices = np.arange(X_train_10min_ppg.shape[0])
+        train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        X_train_10min_ppg = X_train_10min_ppg[train_inds]
+        # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        y_train = y_train[train_inds]
+        print(len(y_train))
+        # print(X_train_10min_ecg.shape)
+        print(X_train_10min_ppg.shape)
+        # print(X_train_10min_ecg_ppg.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
+
+        # X_test_10min_ecg = test_features_10min_ecg
+        X_test_10min_ppg = test_features_10min_ppg
+        # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        y_test = np.array(test_dispos)
+
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+
+        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
+        pipe.fit(X_train_10min_ppg, y_train)
+        y_test_pred = pipe.predict(X_test_10min_ppg)
+        y_test_proba = pipe.predict_proba(X_test_10min_ppg)[:, 1]
         rocauc = roc_auc_score(y_test, y_test_proba)
         auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        all_tasks_auroc_values_ppg.append(rocauc)
+        all_tasks_auprc_values_ppg.append(auprc)
+        print("10min -- C: %f -- PPG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ppg, rocauc, auprc))
+
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg.append(auprc)
+        # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
+
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -696,21 +628,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print(np.max(potassium_values))
 
         train_potassiums = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 if (csn in csn_to_potassium) and (csn_to_potassium[csn] != '>10.0'): ####################
                     train_potassiums.append(float(csn_to_potassium[csn]))
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
                     # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_potassiums))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("train label stats:")
@@ -719,21 +651,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("max: %.2f" % np.max(train_potassiums))
 
         test_potassiums = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 if (csn in csn_to_potassium) and (csn_to_potassium[csn] != '>10.0'): ####################
                     test_potassiums.append(float(csn_to_potassium[csn]))
-                    test_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # test_features_list_10min_ecg.append(features_10min_ecg[i])
                     test_features_list_10min_ppg.append(features_10min_ppg[i])
                     # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_potassiums))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("test label stats:")
@@ -741,39 +673,39 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("mean: %.2f" % np.mean(test_potassiums))
         print("max: %.2f" % np.max(test_potassiums))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_potassiums)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_potassiums)
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg.append(pearson_corr)
-        all_tasks_mae_values_ecg.append(mae)
-        print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg.append(pearson_corr)
+        # all_tasks_mae_values_ecg.append(mae)
+        # print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
 
         pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ppg))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -793,14 +725,14 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_mae_values_ecg_ppg.append(mae)
         # print("10min -- alpha: %f -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, pearson_corr, mae))
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
-        all_tasks_mae_values_ecg_ppg_mean.append(mae)
-        print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg_mean.append(mae)
+        # print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
 
 
 
@@ -820,21 +752,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print(np.max(calcium_values))
 
         train_calciums = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 if csn in csn_to_calcium:
                     train_calciums.append(float(csn_to_calcium[csn]))
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
                     # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_calciums))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("train label stats:")
@@ -843,21 +775,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("max: %.2f" % np.max(train_calciums))
 
         test_calciums = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 if csn in csn_to_calcium:
                     test_calciums.append(float(csn_to_calcium[csn]))
-                    test_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # test_features_list_10min_ecg.append(features_10min_ecg[i])
                     test_features_list_10min_ppg.append(features_10min_ppg[i])
                     # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_calciums))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("test label stats:")
@@ -865,39 +797,39 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("mean: %.2f" % np.mean(test_calciums))
         print("max: %.2f" % np.max(test_calciums))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_calciums)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_calciums)
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg.append(pearson_corr)
-        all_tasks_mae_values_ecg.append(mae)
-        print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg.append(pearson_corr)
+        # all_tasks_mae_values_ecg.append(mae)
+        # print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
 
         pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ppg))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -917,14 +849,14 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_mae_values_ecg_ppg.append(mae)
         # print("10min -- alpha: %f -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, pearson_corr, mae))
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
-        all_tasks_mae_values_ecg_ppg_mean.append(mae)
-        print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg_mean.append(mae)
+        # print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
 
 
 
@@ -944,21 +876,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print(np.max(egfr_values))
 
         train_egfrs = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 if csn in csn_to_egfr:
                     train_egfrs.append(float(csn_to_egfr[csn]))
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
                     # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_egfrs))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("train label stats:")
@@ -967,21 +899,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("max: %.2f" % np.max(train_egfrs))
 
         test_egfrs = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 if csn in csn_to_egfr:
                     test_egfrs.append(float(csn_to_egfr[csn]))
-                    test_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # test_features_list_10min_ecg.append(features_10min_ecg[i])
                     test_features_list_10min_ppg.append(features_10min_ppg[i])
                     # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_egfrs))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("test label stats:")
@@ -989,39 +921,39 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("mean: %.2f" % np.mean(test_egfrs))
         print("max: %.2f" % np.max(test_egfrs))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_egfrs)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_egfrs)
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg.append(pearson_corr)
-        all_tasks_mae_values_ecg.append(mae)
-        print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg.append(pearson_corr)
+        # all_tasks_mae_values_ecg.append(mae)
+        # print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
 
         pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ppg))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -1041,14 +973,14 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_mae_values_ecg_ppg.append(mae)
         # print("10min -- alpha: %f -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, pearson_corr, mae))
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
-        all_tasks_mae_values_ecg_ppg_mean.append(mae)
-        print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg_mean.append(mae)
+        # print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
 
 
 
@@ -1068,21 +1000,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print(np.max(glucose_values))
 
         train_glucoses = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 if csn in csn_to_glucose:
                     train_glucoses.append(float(csn_to_glucose[csn]))
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
                     # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_glucoses))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("train label stats:")
@@ -1091,21 +1023,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("max: %.2f" % np.max(train_glucoses))
 
         test_glucoses = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 if csn in csn_to_glucose:
                     test_glucoses.append(float(csn_to_glucose[csn]))
-                    test_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # test_features_list_10min_ecg.append(features_10min_ecg[i])
                     test_features_list_10min_ppg.append(features_10min_ppg[i])
                     # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_glucoses))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("test label stats:")
@@ -1113,39 +1045,39 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("mean: %.2f" % np.mean(test_glucoses))
         print("max: %.2f" % np.max(test_glucoses))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_glucoses)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_glucoses)
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg.append(pearson_corr)
-        all_tasks_mae_values_ecg.append(mae)
-        print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg.append(pearson_corr)
+        # all_tasks_mae_values_ecg.append(mae)
+        # print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
 
         pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ppg))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -1165,14 +1097,14 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_mae_values_ecg_ppg.append(mae)
         # print("10min -- alpha: %f -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, pearson_corr, mae))
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
-        all_tasks_mae_values_ecg_ppg_mean.append(mae)
-        print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg_mean.append(mae)
+        # print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
 
 
 
@@ -1192,21 +1124,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print(np.max(hemoglobin_values))
 
         train_hemoglobins = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 if csn in csn_to_hemoglobin:
                     train_hemoglobins.append(float(csn_to_hemoglobin[csn]))
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
                     # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_hemoglobins))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("train label stats:")
@@ -1215,21 +1147,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("max: %.2f" % np.max(train_hemoglobins))
 
         test_hemoglobins = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 if csn in csn_to_hemoglobin:
                     test_hemoglobins.append(float(csn_to_hemoglobin[csn]))
-                    test_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # test_features_list_10min_ecg.append(features_10min_ecg[i])
                     test_features_list_10min_ppg.append(features_10min_ppg[i])
                     # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_hemoglobins))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("test label stats:")
@@ -1237,39 +1169,39 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("mean: %.2f" % np.mean(test_hemoglobins))
         print("max: %.2f" % np.max(test_hemoglobins))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_hemoglobins)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_hemoglobins)
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg.append(pearson_corr)
-        all_tasks_mae_values_ecg.append(mae)
-        print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg.append(pearson_corr)
+        # all_tasks_mae_values_ecg.append(mae)
+        # print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
 
         pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ppg))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -1289,14 +1221,14 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_mae_values_ecg_ppg.append(mae)
         # print("10min -- alpha: %f -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, pearson_corr, mae))
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
-        all_tasks_mae_values_ecg_ppg_mean.append(mae)
-        print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg_mean.append(mae)
+        # print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
 
 
 
@@ -1316,21 +1248,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print(np.max(albumin_values))
 
         train_albumins = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 if csn in csn_to_albumin:
                     train_albumins.append(float(csn_to_albumin[csn]))
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
                     # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_albumins))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("train label stats:")
@@ -1339,21 +1271,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("max: %.2f" % np.max(train_albumins))
 
         test_albumins = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 if csn in csn_to_albumin:
                     test_albumins.append(float(csn_to_albumin[csn]))
-                    test_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # test_features_list_10min_ecg.append(features_10min_ecg[i])
                     test_features_list_10min_ppg.append(features_10min_ppg[i])
                     # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_albumins))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("test label stats:")
@@ -1361,39 +1293,39 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("mean: %.2f" % np.mean(test_albumins))
         print("max: %.2f" % np.max(test_albumins))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_albumins)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_albumins)
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg.append(pearson_corr)
-        all_tasks_mae_values_ecg.append(mae)
-        print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg.append(pearson_corr)
+        # all_tasks_mae_values_ecg.append(mae)
+        # print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
 
         pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ppg))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -1413,14 +1345,14 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_mae_values_ecg_ppg.append(mae)
         # print("10min -- alpha: %f -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, pearson_corr, mae))
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
-        all_tasks_mae_values_ecg_ppg_mean.append(mae)
-        print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg_mean.append(mae)
+        # print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
 
 
 
@@ -1440,21 +1372,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print(np.max(bun_values))
 
         train_buns = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 if (csn in csn_to_bun) and (csn_to_bun[csn] != '<2'):
                     train_buns.append(float(csn_to_bun[csn]))
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
                     # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_buns))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("train label stats:")
@@ -1463,21 +1395,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("max: %.2f" % np.max(train_buns))
 
         test_buns = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 if (csn in csn_to_bun) and (csn_to_bun[csn] != '<2'):
                     test_buns.append(float(csn_to_bun[csn]))
-                    test_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # test_features_list_10min_ecg.append(features_10min_ecg[i])
                     test_features_list_10min_ppg.append(features_10min_ppg[i])
                     # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_buns))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("test label stats:")
@@ -1485,39 +1417,39 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("mean: %.2f" % np.mean(test_buns))
         print("max: %.2f" % np.max(test_buns))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_buns)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_buns)
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg.append(pearson_corr)
-        all_tasks_mae_values_ecg.append(mae)
-        print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg.append(pearson_corr)
+        # all_tasks_mae_values_ecg.append(mae)
+        # print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
 
         pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ppg))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -1537,14 +1469,14 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_mae_values_ecg_ppg.append(mae)
         # print("10min -- alpha: %f -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, pearson_corr, mae))
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
-        all_tasks_mae_values_ecg_ppg_mean.append(mae)
-        print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg_mean.append(mae)
+        # print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
 
 
 
@@ -1564,21 +1496,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print(np.max(sodium_values))
 
         train_sodiums = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in train_csns:
                 if csn in csn_to_sodium:
                     train_sodiums.append(float(csn_to_sodium[csn]))
-                    train_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # train_features_list_10min_ecg.append(features_10min_ecg[i])
                     train_features_list_10min_ppg.append(features_10min_ppg[i])
                     # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_sodiums))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("train label stats:")
@@ -1587,21 +1519,21 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("max: %.2f" % np.max(train_sodiums))
 
         test_sodiums = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
             if csn in test_csns:
                 if csn in csn_to_sodium:
                     test_sodiums.append(float(csn_to_sodium[csn]))
-                    test_features_list_10min_ecg.append(features_10min_ecg[i])
+                    # test_features_list_10min_ecg.append(features_10min_ecg[i])
                     test_features_list_10min_ppg.append(features_10min_ppg[i])
                     # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_sodiums))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("test label stats:")
@@ -1609,39 +1541,39 @@ for train_prop_i, train_prop in enumerate(train_props):
         print("mean: %.2f" % np.mean(test_sodiums))
         print("max: %.2f" % np.max(test_sodiums))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_sodiums)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_sodiums)
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg.append(pearson_corr)
-        all_tasks_mae_values_ecg.append(mae)
-        print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg.append(pearson_corr)
+        # all_tasks_mae_values_ecg.append(mae)
+        # print("10min -- alpha: %f -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, pearson_corr, mae))
 
         pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ppg))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -1661,14 +1593,14 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_mae_values_ecg_ppg.append(mae)
         # print("10min -- alpha: %f -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, pearson_corr, mae))
 
-        pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        mae = np.mean(np.abs(y_test - y_test_pred))
-        pearson_corr, _ = pearsonr(y_test_pred, y_test)
-        all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
-        all_tasks_mae_values_ecg_ppg_mean.append(mae)
-        print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
+        # pipe = make_pipeline(StandardScaler(), Ridge(alpha=best_alpha_ecg_ppg_mean))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # mae = np.mean(np.abs(y_test - y_test_pred))
+        # pearson_corr, _ = pearsonr(y_test_pred, y_test)
+        # all_tasks_pearson_values_ecg_ppg_mean.append(pearson_corr)
+        # all_tasks_mae_values_ecg_ppg_mean.append(mae)
+        # print("10min -- alpha: %f -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, pearson_corr, mae))
 
 
 
@@ -1685,7 +1617,7 @@ for train_prop_i, train_prop in enumerate(train_props):
         csns_with_code = visits_df[visits_df["MRN"].isin(mrns_with_code)]["CSN"].unique()
 
         train_ICD10_I48s = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -1694,20 +1626,20 @@ for train_prop_i, train_prop in enumerate(train_props):
                     train_ICD10_I48s.append(1)
                 else:
                     train_ICD10_I48s.append(0)
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
                 # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ICD10_I48s))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_ICD10_I48s.count(1)/float(len(train_ICD10_I48s))))
 
         test_ICD10_I48s = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -1716,52 +1648,52 @@ for train_prop_i, train_prop in enumerate(train_props):
                     test_ICD10_I48s.append(1)
                 else:
                     test_ICD10_I48s.append(0)
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
                 # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ICD10_I48s))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("proportion of positive class in test: %.4f" % (test_ICD10_I48s.count(1)/float(len(test_ICD10_I48s))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ICD10_I48s)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ICD10_I48s)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -1783,15 +1715,15 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -1804,7 +1736,7 @@ for train_prop_i, train_prop in enumerate(train_props):
         csns_with_code = visits_df[visits_df["MRN"].isin(mrns_with_code)]["CSN"].unique()
 
         train_ICD10_I50s = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -1813,20 +1745,20 @@ for train_prop_i, train_prop in enumerate(train_props):
                     train_ICD10_I50s.append(1)
                 else:
                     train_ICD10_I50s.append(0)
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
                 # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ICD10_I50s))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_ICD10_I50s.count(1)/float(len(train_ICD10_I50s))))
 
         test_ICD10_I50s = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -1835,52 +1767,52 @@ for train_prop_i, train_prop in enumerate(train_props):
                     test_ICD10_I50s.append(1)
                 else:
                     test_ICD10_I50s.append(0)
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
                 # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ICD10_I50s))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("proportion of positive class in test: %.4f" % (test_ICD10_I50s.count(1)/float(len(test_ICD10_I50s))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ICD10_I50s)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ICD10_I50s)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -1902,15 +1834,15 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -1923,7 +1855,7 @@ for train_prop_i, train_prop in enumerate(train_props):
         csns_with_code = visits_df[visits_df["MRN"].isin(mrns_with_code)]["CSN"].unique()
 
         train_ICD10_group17s = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -1932,20 +1864,20 @@ for train_prop_i, train_prop in enumerate(train_props):
                     train_ICD10_group17s.append(1)
                 else:
                     train_ICD10_group17s.append(0)
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
                 # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ICD10_group17s))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_ICD10_group17s.count(1)/float(len(train_ICD10_group17s))))
 
         test_ICD10_group17s = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -1954,52 +1886,52 @@ for train_prop_i, train_prop in enumerate(train_props):
                     test_ICD10_group17s.append(1)
                 else:
                     test_ICD10_group17s.append(0)
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
                 # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ICD10_group17s))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("proportion of positive class in test: %.4f" % (test_ICD10_group17s.count(1)/float(len(test_ICD10_group17s))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ICD10_group17s)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ICD10_group17s)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -2021,15 +1953,15 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -2042,7 +1974,7 @@ for train_prop_i, train_prop in enumerate(train_props):
         csns_with_code = visits_df[visits_df["MRN"].isin(mrns_with_code)]["CSN"].unique()
 
         train_ICD10_N18s = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2051,20 +1983,20 @@ for train_prop_i, train_prop in enumerate(train_props):
                     train_ICD10_N18s.append(1)
                 else:
                     train_ICD10_N18s.append(0)
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
                 # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ICD10_N18s))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_ICD10_N18s.count(1)/float(len(train_ICD10_N18s))))
 
         test_ICD10_N18s = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2073,52 +2005,52 @@ for train_prop_i, train_prop in enumerate(train_props):
                     test_ICD10_N18s.append(1)
                 else:
                     test_ICD10_N18s.append(0)
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
                 # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ICD10_N18s))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("proportion of positive class in test: %.4f" % (test_ICD10_N18s.count(1)/float(len(test_ICD10_N18s))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ICD10_N18s)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ICD10_N18s)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -2140,15 +2072,15 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -2161,7 +2093,7 @@ for train_prop_i, train_prop in enumerate(train_props):
         csns_with_code = visits_df[visits_df["MRN"].isin(mrns_with_code)]["CSN"].unique()
 
         train_ICD10_group12s = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2170,20 +2102,20 @@ for train_prop_i, train_prop in enumerate(train_props):
                     train_ICD10_group12s.append(1)
                 else:
                     train_ICD10_group12s.append(0)
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
                 # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ICD10_group12s))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_ICD10_group12s.count(1)/float(len(train_ICD10_group12s))))
 
         test_ICD10_group12s = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2192,52 +2124,52 @@ for train_prop_i, train_prop in enumerate(train_props):
                     test_ICD10_group12s.append(1)
                 else:
                     test_ICD10_group12s.append(0)
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
                 # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ICD10_group12s))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("proportion of positive class in test: %.4f" % (test_ICD10_group12s.count(1)/float(len(test_ICD10_group12s))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ICD10_group12s)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ICD10_group12s)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -2259,15 +2191,15 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -2280,7 +2212,7 @@ for train_prop_i, train_prop in enumerate(train_props):
         csns_with_code = visits_df[visits_df["MRN"].isin(mrns_with_code)]["CSN"].unique()
 
         train_ICD10_group21s = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2289,20 +2221,20 @@ for train_prop_i, train_prop in enumerate(train_props):
                     train_ICD10_group21s.append(1)
                 else:
                     train_ICD10_group21s.append(0)
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
                 # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ICD10_group21s))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_ICD10_group21s.count(1)/float(len(train_ICD10_group21s))))
 
         test_ICD10_group21s = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2311,52 +2243,52 @@ for train_prop_i, train_prop in enumerate(train_props):
                     test_ICD10_group21s.append(1)
                 else:
                     test_ICD10_group21s.append(0)
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
                 # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ICD10_group21s))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("proportion of positive class in test: %.4f" % (test_ICD10_group21s.count(1)/float(len(test_ICD10_group21s))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ICD10_group21s)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ICD10_group21s)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -2378,15 +2310,15 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -2399,7 +2331,7 @@ for train_prop_i, train_prop in enumerate(train_props):
         csns_with_code = visits_df[visits_df["MRN"].isin(mrns_with_code)]["CSN"].unique()
 
         train_ICD10_group10s = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2408,20 +2340,20 @@ for train_prop_i, train_prop in enumerate(train_props):
                     train_ICD10_group10s.append(1)
                 else:
                     train_ICD10_group10s.append(0)
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
                 # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ICD10_group10s))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_ICD10_group10s.count(1)/float(len(train_ICD10_group10s))))
 
         test_ICD10_group10s = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2430,52 +2362,52 @@ for train_prop_i, train_prop in enumerate(train_props):
                     test_ICD10_group10s.append(1)
                 else:
                     test_ICD10_group10s.append(0)
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
                 # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ICD10_group10s))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("proportion of positive class in test: %.4f" % (test_ICD10_group10s.count(1)/float(len(test_ICD10_group10s))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ICD10_group10s)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ICD10_group10s)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -2497,15 +2429,15 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -2518,7 +2450,7 @@ for train_prop_i, train_prop in enumerate(train_props):
         csns_with_code = visits_df[visits_df["MRN"].isin(mrns_with_code)]["CSN"].unique()
 
         train_ICD10_group16s = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2527,20 +2459,20 @@ for train_prop_i, train_prop in enumerate(train_props):
                     train_ICD10_group16s.append(1)
                 else:
                     train_ICD10_group16s.append(0)
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
                 # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ICD10_group16s))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_ICD10_group16s.count(1)/float(len(train_ICD10_group16s))))
 
         test_ICD10_group16s = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2549,52 +2481,52 @@ for train_prop_i, train_prop in enumerate(train_props):
                     test_ICD10_group16s.append(1)
                 else:
                     test_ICD10_group16s.append(0)
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
                 # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ICD10_group16s))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("proportion of positive class in test: %.4f" % (test_ICD10_group16s.count(1)/float(len(test_ICD10_group16s))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ICD10_group16s)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ICD10_group16s)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -2616,15 +2548,15 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -2637,7 +2569,7 @@ for train_prop_i, train_prop in enumerate(train_props):
         csns_with_code = visits_df[visits_df["MRN"].isin(mrns_with_code)]["CSN"].unique()
 
         train_ICD10_group20s = []
-        train_features_list_10min_ecg = []
+        # train_features_list_10min_ecg = []
         train_features_list_10min_ppg = []
         # train_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2646,20 +2578,20 @@ for train_prop_i, train_prop in enumerate(train_props):
                     train_ICD10_group20s.append(1)
                 else:
                     train_ICD10_group20s.append(0)
-                train_features_list_10min_ecg.append(features_10min_ecg[i])
+                # train_features_list_10min_ecg.append(features_10min_ecg[i])
                 train_features_list_10min_ppg.append(features_10min_ppg[i])
                 # train_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
+        # train_features_10min_ecg = np.stack(train_features_list_10min_ecg, axis=0)
         train_features_10min_ppg = np.stack(train_features_list_10min_ppg, axis=0)
         # train_features_10min_ecg_ppg = np.stack(train_features_list_10min_ecg_ppg, axis=0)
         print(len(train_ICD10_group20s))
-        print(train_features_10min_ecg.shape)
+        # print(train_features_10min_ecg.shape)
         print(train_features_10min_ppg.shape)
         # print(train_features_10min_ecg_ppg.shape)
         print("proportion of positive class in train: %.4f" % (train_ICD10_group20s.count(1)/float(len(train_ICD10_group20s))))
 
         test_ICD10_group20s = []
-        test_features_list_10min_ecg = []
+        # test_features_list_10min_ecg = []
         test_features_list_10min_ppg = []
         # test_features_list_10min_ecg_ppg = []
         for i, csn in enumerate(preprocessed_csns):
@@ -2668,52 +2600,52 @@ for train_prop_i, train_prop in enumerate(train_props):
                     test_ICD10_group20s.append(1)
                 else:
                     test_ICD10_group20s.append(0)
-                test_features_list_10min_ecg.append(features_10min_ecg[i])
+                # test_features_list_10min_ecg.append(features_10min_ecg[i])
                 test_features_list_10min_ppg.append(features_10min_ppg[i])
                 # test_features_list_10min_ecg_ppg.append(features_10min_ecg_ppg[i])
-        test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
+        # test_features_10min_ecg = np.stack(test_features_list_10min_ecg, axis=0)
         test_features_10min_ppg = np.stack(test_features_list_10min_ppg, axis=0)
         # test_features_10min_ecg_ppg = np.stack(test_features_list_10min_ecg_ppg, axis=0)
         print(len(test_ICD10_group20s))
-        print(test_features_10min_ecg.shape)
+        # print(test_features_10min_ecg.shape)
         print(test_features_10min_ppg.shape)
         # print(test_features_10min_ecg_ppg.shape)
         print("proportion of positive class in test: %.4f" % (test_ICD10_group20s.count(1)/float(len(test_ICD10_group20s))))
 
-        X_train_10min_ecg = train_features_10min_ecg
+        # X_train_10min_ecg = train_features_10min_ecg
         X_train_10min_ppg = train_features_10min_ppg
         # X_train_10min_ecg_ppg = train_features_10min_ecg_ppg
-        X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
+        # X_train_10min_ecg_ppg_mean = (X_train_10min_ecg + X_train_10min_ppg)/2.0
         y_train = np.array(train_ICD10_group20s)
         #######
-        indices = np.arange(X_train_10min_ecg.shape[0])
+        indices = np.arange(X_train_10min_ppg.shape[0])
         train_inds = rng.choice(indices, size=int(train_prop*len(indices)), replace=True)
-        X_train_10min_ecg = X_train_10min_ecg[train_inds]
+        # X_train_10min_ecg = X_train_10min_ecg[train_inds]
         X_train_10min_ppg = X_train_10min_ppg[train_inds]
         # X_train_10min_ecg_ppg = X_train_10min_ecg_ppg[train_inds]
-        X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
+        # X_train_10min_ecg_ppg_mean = X_train_10min_ecg_ppg_mean[train_inds]
         y_train = y_train[train_inds]
         print(len(y_train))
-        print(X_train_10min_ecg.shape)
+        # print(X_train_10min_ecg.shape)
         print(X_train_10min_ppg.shape)
         # print(X_train_10min_ecg_ppg.shape)
-        print(X_train_10min_ecg_ppg_mean.shape)
+        # print(X_train_10min_ecg_ppg_mean.shape)
 
-        X_test_10min_ecg = test_features_10min_ecg
+        # X_test_10min_ecg = test_features_10min_ecg
         X_test_10min_ppg = test_features_10min_ppg
         # X_test_10min_ecg_ppg = test_features_10min_ecg_ppg
-        X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
+        # X_test_10min_ecg_ppg_mean = (X_test_10min_ecg + X_test_10min_ppg)/2.0
         y_test = np.array(test_ICD10_group20s)
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg.append(rocauc)
-        all_tasks_auprc_values_ecg.append(auprc)
-        print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg.append(rocauc)
+        # all_tasks_auprc_values_ecg.append(auprc)
+        # print("10min -- C: %f -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, rocauc, auprc))
 
         pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ppg, penalty="l2", solver="lbfgs", max_iter=2000))
         pipe.fit(X_train_10min_ppg, y_train)
@@ -2735,15 +2667,15 @@ for train_prop_i, train_prop in enumerate(train_props):
         # all_tasks_auprc_values_ecg_ppg.append(auprc)
         # print("10min -- C: %f -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, rocauc, auprc))
 
-        pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
-        pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
-        y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
-        y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
-        rocauc = roc_auc_score(y_test, y_test_proba)
-        auprc = average_precision_score(y_test, y_test_proba)
-        all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
-        all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
-        print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
+        # pipe = make_pipeline(StandardScaler(), LogisticRegression(C=best_c_ecg_ppg_mean, penalty="l2", solver="lbfgs", max_iter=2000))
+        # pipe.fit(X_train_10min_ecg_ppg_mean, y_train)
+        # y_test_pred = pipe.predict(X_test_10min_ecg_ppg_mean)
+        # y_test_proba = pipe.predict_proba(X_test_10min_ecg_ppg_mean)[:, 1]
+        # rocauc = roc_auc_score(y_test, y_test_proba)
+        # auprc = average_precision_score(y_test, y_test_proba)
+        # all_tasks_auroc_values_ecg_ppg_mean.append(rocauc)
+        # all_tasks_auprc_values_ecg_ppg_mean.append(auprc)
+        # print("10min -- C: %f -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, rocauc, auprc))
 
 
 
@@ -2754,77 +2686,98 @@ for train_prop_i, train_prop in enumerate(train_props):
 
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-        print(len(all_tasks_pearson_values_ecg))
+        # print(len(all_tasks_pearson_values_ecg))
         print(len(all_tasks_pearson_values_ppg))
-        print(len(all_tasks_pearson_values_ecg_ppg_mean))
-        print(len(all_tasks_mae_values_ecg))
+        # print(len(all_tasks_pearson_values_ecg_ppg))
+        # print(len(all_tasks_pearson_values_ecg_ppg_mean))
+        # print(len(all_tasks_mae_values_ecg))
         print(len(all_tasks_mae_values_ppg))
-        print(len(all_tasks_mae_values_ecg_ppg_mean))
+        # print(len(all_tasks_mae_values_ecg_ppg))
+        # print(len(all_tasks_mae_values_ecg_ppg_mean))
         #
-        print("10min -- alpha: %f -- Mean over all 9 regression tasks -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, np.mean(all_tasks_pearson_values_ecg), np.mean(all_tasks_mae_values_ecg)))
+        # print("10min -- alpha: %f -- Mean over all 9 regression tasks -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, np.mean(all_tasks_pearson_values_ecg), np.mean(all_tasks_mae_values_ecg)))
         print("10min -- alpha: %f -- Mean over all 9 regression tasks -- PPG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ppg, np.mean(all_tasks_pearson_values_ppg), np.mean(all_tasks_mae_values_ppg)))
-        print("10min -- alpha: %f -- Mean over all 9 regression tasks -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, np.mean(all_tasks_pearson_values_ecg_ppg_mean), np.mean(all_tasks_mae_values_ecg_ppg_mean)))
+        # print("10min -- alpha: %f -- Mean over all 9 regression tasks -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, np.mean(all_tasks_pearson_values_ecg_ppg), np.mean(all_tasks_mae_values_ecg_ppg)))
+        # print("10min -- alpha: %f -- Mean over all 9 regression tasks -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, np.mean(all_tasks_pearson_values_ecg_ppg_mean), np.mean(all_tasks_mae_values_ecg_ppg_mean)))
 
-        labs_tasks_pearson_values_ecg = all_tasks_pearson_values_ecg[1:]
+        # labs_tasks_pearson_values_ecg = all_tasks_pearson_values_ecg[1:]
         labs_tasks_pearson_values_ppg = all_tasks_pearson_values_ppg[1:]
-        labs_tasks_pearson_values_ecg_ppg_mean = all_tasks_pearson_values_ecg_ppg_mean[1:]
-        labs_tasks_mae_values_ecg = all_tasks_mae_values_ecg[1:]
+        # labs_tasks_pearson_values_ecg_ppg = all_tasks_pearson_values_ecg_ppg[1:]
+        # labs_tasks_pearson_values_ecg_ppg_mean = all_tasks_pearson_values_ecg_ppg_mean[1:]
+        # labs_tasks_mae_values_ecg = all_tasks_mae_values_ecg[1:]
         labs_tasks_mae_values_ppg = all_tasks_mae_values_ppg[1:]
-        labs_tasks_mae_values_ecg_ppg_mean = all_tasks_mae_values_ecg_ppg_mean[1:]
-        print(len(labs_tasks_pearson_values_ecg))
+        # labs_tasks_mae_values_ecg_ppg = all_tasks_mae_values_ecg_ppg[1:]
+        # labs_tasks_mae_values_ecg_ppg_mean = all_tasks_mae_values_ecg_ppg_mean[1:]
+        # print(len(labs_tasks_pearson_values_ecg))
         print(len(labs_tasks_pearson_values_ppg))
-        print(len(labs_tasks_pearson_values_ecg_ppg_mean))
-        print(len(labs_tasks_mae_values_ecg))
+        # print(len(labs_tasks_pearson_values_ecg_ppg))
+        # print(len(labs_tasks_pearson_values_ecg_ppg_mean))
+        # print(len(labs_tasks_mae_values_ecg))
         print(len(labs_tasks_mae_values_ppg))
-        print(len(labs_tasks_mae_values_ecg_ppg_mean))
+        # print(len(labs_tasks_mae_values_ecg_ppg))
+        # print(len(labs_tasks_mae_values_ecg_ppg_mean))
         #
-        print("10min -- alpha: %f -- Mean over the 8 labs regression tasks -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, np.mean(labs_tasks_pearson_values_ecg), np.mean(labs_tasks_mae_values_ecg)))
+        # print("10min -- alpha: %f -- Mean over the 8 labs regression tasks -- ECG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg, np.mean(labs_tasks_pearson_values_ecg), np.mean(labs_tasks_mae_values_ecg)))
         print("10min -- alpha: %f -- Mean over the 8 labs regression tasks -- PPG-only -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ppg, np.mean(labs_tasks_pearson_values_ppg), np.mean(labs_tasks_mae_values_ppg)))
-        print("10min -- alpha: %f -- Mean over the 8 labs regression tasks -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, np.mean(labs_tasks_pearson_values_ecg_ppg_mean), np.mean(labs_tasks_mae_values_ecg_ppg_mean)))
+        # print("10min -- alpha: %f -- Mean over the 8 labs regression tasks -- ECG + PPG -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg, np.mean(labs_tasks_pearson_values_ecg_ppg), np.mean(labs_tasks_mae_values_ecg_ppg)))
+        # print("10min -- alpha: %f -- Mean over the 8 labs regression tasks -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f, MAE: %.3f" % (best_alpha_ecg_ppg_mean, np.mean(labs_tasks_pearson_values_ecg_ppg_mean), np.mean(labs_tasks_mae_values_ecg_ppg_mean)))
 
-        print(len(all_tasks_auroc_values_ecg))
+        # print(len(all_tasks_auroc_values_ecg))
         print(len(all_tasks_auroc_values_ppg))
-        print(len(all_tasks_auroc_values_ecg_ppg_mean))
-        print(len(all_tasks_auprc_values_ecg))
+        # print(len(all_tasks_auroc_values_ecg_ppg))
+        # print(len(all_tasks_auroc_values_ecg_ppg_mean))
+        # print(len(all_tasks_auprc_values_ecg))
         print(len(all_tasks_auprc_values_ppg))
-        print(len(all_tasks_auprc_values_ecg_ppg_mean))
+        # print(len(all_tasks_auprc_values_ecg_ppg))
+        # print(len(all_tasks_auprc_values_ecg_ppg_mean))
         #
-        print("10min -- C: %f -- Mean over all 11 classification tasks -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, np.mean(all_tasks_auroc_values_ecg), np.mean(all_tasks_auprc_values_ecg)))
+        # print("10min -- C: %f -- Mean over all 11 classification tasks -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, np.mean(all_tasks_auroc_values_ecg), np.mean(all_tasks_auprc_values_ecg)))
         print("10min -- C: %f -- Mean over all 11 classification tasks -- PPG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ppg, np.mean(all_tasks_auroc_values_ppg), np.mean(all_tasks_auprc_values_ppg)))
-        print("10min -- C: %f -- Mean over all 11 classification tasks -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, np.mean(all_tasks_auroc_values_ecg_ppg_mean), np.mean(all_tasks_auprc_values_ecg_ppg_mean)))
+        # print("10min -- C: %f -- Mean over all 11 classification tasks -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, np.mean(all_tasks_auroc_values_ecg_ppg), np.mean(all_tasks_auprc_values_ecg_ppg)))
+        # print("10min -- C: %f -- Mean over all 11 classification tasks -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, np.mean(all_tasks_auroc_values_ecg_ppg_mean), np.mean(all_tasks_auprc_values_ecg_ppg_mean)))
 
-        ICD10_tasks_auroc_values_ecg = all_tasks_auroc_values_ecg[2:]
+        # ICD10_tasks_auroc_values_ecg = all_tasks_auroc_values_ecg[2:]
         ICD10_tasks_auroc_values_ppg = all_tasks_auroc_values_ppg[2:]
-        ICD10_tasks_auroc_values_ecg_ppg_mean = all_tasks_auroc_values_ecg_ppg_mean[2:]
-        ICD10_tasks_auprc_values_ecg = all_tasks_auprc_values_ecg[2:]
+        # ICD10_tasks_auroc_values_ecg_ppg = all_tasks_auroc_values_ecg_ppg[2:]
+        # ICD10_tasks_auroc_values_ecg_ppg_mean = all_tasks_auroc_values_ecg_ppg_mean[2:]
+        # ICD10_tasks_auprc_values_ecg = all_tasks_auprc_values_ecg[2:]
         ICD10_tasks_auprc_values_ppg = all_tasks_auprc_values_ppg[2:]
-        ICD10_tasks_auprc_values_ecg_ppg_mean = all_tasks_auprc_values_ecg_ppg_mean[2:]
-        print(len(ICD10_tasks_auroc_values_ecg))
+        # ICD10_tasks_auprc_values_ecg_ppg = all_tasks_auprc_values_ecg_ppg[2:]
+        # ICD10_tasks_auprc_values_ecg_ppg_mean = all_tasks_auprc_values_ecg_ppg_mean[2:]
+        # print(len(ICD10_tasks_auroc_values_ecg))
         print(len(ICD10_tasks_auroc_values_ppg))
-        print(len(ICD10_tasks_auroc_values_ecg_ppg_mean))
-        print(len(ICD10_tasks_auprc_values_ecg))
+        # print(len(ICD10_tasks_auroc_values_ecg_ppg))
+        # print(len(ICD10_tasks_auroc_values_ecg_ppg_mean))
+        # print(len(ICD10_tasks_auprc_values_ecg))
         print(len(ICD10_tasks_auprc_values_ppg))
-        print(len(ICD10_tasks_auprc_values_ecg_ppg_mean))
+        # print(len(ICD10_tasks_auprc_values_ecg_ppg))
+        # print(len(ICD10_tasks_auprc_values_ecg_ppg_mean))
         #
-        print("10min -- C: %f -- Mean over the 9 ICD-10 code classification tasks -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, np.mean(ICD10_tasks_auroc_values_ecg), np.mean(ICD10_tasks_auprc_values_ecg)))
+        # print("10min -- C: %f -- Mean over the 9 ICD-10 code classification tasks -- ECG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg, np.mean(ICD10_tasks_auroc_values_ecg), np.mean(ICD10_tasks_auprc_values_ecg)))
         print("10min -- C: %f -- Mean over the 9 ICD-10 code classification tasks -- PPG-only -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ppg, np.mean(ICD10_tasks_auroc_values_ppg), np.mean(ICD10_tasks_auprc_values_ppg)))
-        print("10min -- C: %f -- Mean over the 9 ICD-10 code classification tasks -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, np.mean(ICD10_tasks_auroc_values_ecg_ppg_mean), np.mean(ICD10_tasks_auprc_values_ecg_ppg_mean)))
+        # print("10min -- C: %f -- Mean over the 9 ICD-10 code classification tasks -- ECG + PPG -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg, np.mean(ICD10_tasks_auroc_values_ecg_ppg), np.mean(ICD10_tasks_auprc_values_ecg_ppg)))
+        # print("10min -- C: %f -- Mean over the 9 ICD-10 code classification tasks -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f, AUPRC: %.3f" % (best_c_ecg_ppg_mean, np.mean(ICD10_tasks_auroc_values_ecg_ppg_mean), np.mean(ICD10_tasks_auprc_values_ecg_ppg_mean)))
 
         results_data[run_i] = {}
-        results_data[run_i]["all_tasks_pearson_values_ecg"] = all_tasks_pearson_values_ecg
-        results_data[run_i]["all_tasks_mae_values_ecg"] = all_tasks_mae_values_ecg
-        results_data[run_i]["all_tasks_auroc_values_ecg"] = all_tasks_auroc_values_ecg
-        results_data[run_i]["all_tasks_auprc_values_ecg"] = all_tasks_auprc_values_ecg
+        # results_data[run_i]["all_tasks_pearson_values_ecg"] = all_tasks_pearson_values_ecg
+        # results_data[run_i]["all_tasks_mae_values_ecg"] = all_tasks_mae_values_ecg
+        # results_data[run_i]["all_tasks_auroc_values_ecg"] = all_tasks_auroc_values_ecg
+        # results_data[run_i]["all_tasks_auprc_values_ecg"] = all_tasks_auprc_values_ecg
         #
         results_data[run_i]["all_tasks_pearson_values_ppg"] = all_tasks_pearson_values_ppg
         results_data[run_i]["all_tasks_mae_values_ppg"] = all_tasks_mae_values_ppg
         results_data[run_i]["all_tasks_auroc_values_ppg"] = all_tasks_auroc_values_ppg
         results_data[run_i]["all_tasks_auprc_values_ppg"] = all_tasks_auprc_values_ppg
         #
-        results_data[run_i]["all_tasks_pearson_values_ecg_ppg_mean"] = all_tasks_pearson_values_ecg_ppg_mean
-        results_data[run_i]["all_tasks_mae_values_ecg_ppg_mean"] = all_tasks_mae_values_ecg_ppg_mean
-        results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"] = all_tasks_auroc_values_ecg_ppg_mean
-        results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"] = all_tasks_auprc_values_ecg_ppg_mean
+        # results_data[run_i]["all_tasks_pearson_values_ecg_ppg"] = all_tasks_pearson_values_ecg_ppg
+        # results_data[run_i]["all_tasks_mae_values_ecg_ppg"] = all_tasks_mae_values_ecg_ppg
+        # results_data[run_i]["all_tasks_auroc_values_ecg_ppg"] = all_tasks_auroc_values_ecg_ppg
+        # results_data[run_i]["all_tasks_auprc_values_ecg_ppg"] = all_tasks_auprc_values_ecg_ppg
+        #
+        # results_data[run_i]["all_tasks_pearson_values_ecg_ppg_mean"] = all_tasks_pearson_values_ecg_ppg_mean
+        # results_data[run_i]["all_tasks_mae_values_ecg_ppg_mean"] = all_tasks_mae_values_ecg_ppg_mean
+        # results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"] = all_tasks_auroc_values_ecg_ppg_mean
+        # results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"] = all_tasks_auprc_values_ecg_ppg_mean
 
         print("end of run!")
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}")
@@ -2856,154 +2809,189 @@ for train_prop_i, train_prop in enumerate(train_props):
     print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
     print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
 
-    age_pearson_values_ecg = []
+    # age_pearson_values_ecg = []
     age_pearson_values_ppg = []
-    age_pearson_values_ecg_ppg_mean = []
+    # age_pearson_values_ecg_ppg = []
+    # age_pearson_values_ecg_ppg_mean = []
     #
-    age_mae_values_ecg = []
+    # age_mae_values_ecg = []
     age_mae_values_ppg = []
-    age_mae_values_ecg_ppg_mean = []
+    # age_mae_values_ecg_ppg = []
+    # age_mae_values_ecg_ppg_mean = []
 
-    sex_auroc_values_ecg = []
+    # sex_auroc_values_ecg = []
     sex_auroc_values_ppg = []
-    sex_auroc_values_ecg_ppg_mean = []
+    # sex_auroc_values_ecg_ppg = []
+    # sex_auroc_values_ecg_ppg_mean = []
     #
-    sex_auprc_values_ecg = []
+    # sex_auprc_values_ecg = []
     sex_auprc_values_ppg = []
-    sex_auprc_values_ecg_ppg_mean = []
+    # sex_auprc_values_ecg_ppg = []
+    # sex_auprc_values_ecg_ppg_mean = []
 
-    dispo_auroc_values_ecg = []
+    # dispo_auroc_values_ecg = []
     dispo_auroc_values_ppg = []
-    dispo_auroc_values_ecg_ppg_mean = []
+    # dispo_auroc_values_ecg_ppg = []
+    # dispo_auroc_values_ecg_ppg_mean = []
     #
-    dispo_auprc_values_ecg = []
+    # dispo_auprc_values_ecg = []
     dispo_auprc_values_ppg = []
-    dispo_auprc_values_ecg_ppg_mean = []
+    # dispo_auprc_values_ecg_ppg = []
+    # dispo_auprc_values_ecg_ppg_mean = []
 
-    all11clstasks_auroc_values_ecg = []
+    # all11clstasks_auroc_values_ecg = []
     all11clstasks_auroc_values_ppg = []
-    all11clstasks_auroc_values_ecg_ppg_mean = []
+    # all11clstasks_auroc_values_ecg_ppg = []
+    # all11clstasks_auroc_values_ecg_ppg_mean = []
     #
-    all11clstasks_auprc_values_ecg = []
+    # all11clstasks_auprc_values_ecg = []
     all11clstasks_auprc_values_ppg = []
-    all11clstasks_auprc_values_ecg_ppg_mean = []
+    # all11clstasks_auprc_values_ecg_ppg = []
+    # all11clstasks_auprc_values_ecg_ppg_mean = []
 
-    icd10codetasks_auroc_values_ecg = []
+    # icd10codetasks_auroc_values_ecg = []
     icd10codetasks_auroc_values_ppg = []
-    icd10codetasks_auroc_values_ecg_ppg_mean = []
+    # icd10codetasks_auroc_values_ecg_ppg = []
+    # icd10codetasks_auroc_values_ecg_ppg_mean = []
     #
-    icd10codetasks_auprc_values_ecg = []
+    # icd10codetasks_auprc_values_ecg = []
     icd10codetasks_auprc_values_ppg = []
-    icd10codetasks_auprc_values_ecg_ppg_mean = []
+    # icd10codetasks_auprc_values_ecg_ppg = []
+    # icd10codetasks_auprc_values_ecg_ppg_mean = []
 
-    all9regtasks_pearson_values_ecg = []
+    # all9regtasks_pearson_values_ecg = []
     all9regtasks_pearson_values_ppg = []
-    all9regtasks_pearson_values_ecg_ppg_mean = []
+    # all9regtasks_pearson_values_ecg_ppg = []
+    # all9regtasks_pearson_values_ecg_ppg_mean = []
     #
-    all9regtasks_mae_values_ecg = []
+    # all9regtasks_mae_values_ecg = []
     all9regtasks_mae_values_ppg = []
-    all9regtasks_mae_values_ecg_ppg_mean = []
+    # all9regtasks_mae_values_ecg_ppg = []
+    # all9regtasks_mae_values_ecg_ppg_mean = []
 
-    labsregtasks_pearson_values_ecg = []
+    # labsregtasks_pearson_values_ecg = []
     labsregtasks_pearson_values_ppg = []
-    labsregtasks_pearson_values_ecg_ppg_mean = []
+    # labsregtasks_pearson_values_ecg_ppg = []
+    # labsregtasks_pearson_values_ecg_ppg_mean = []
     #
-    labsregtasks_mae_values_ecg = []
+    # labsregtasks_mae_values_ecg = []
     labsregtasks_mae_values_ppg = []
-    labsregtasks_mae_values_ecg_ppg_mean = []
+    # labsregtasks_mae_values_ecg_ppg = []
+    # labsregtasks_mae_values_ecg_ppg_mean = []
     for run_i in range(number_of_runs):
-        age_pearson_values_ecg.append(results_data[run_i]["all_tasks_pearson_values_ecg"][0])
+        # age_pearson_values_ecg.append(results_data[run_i]["all_tasks_pearson_values_ecg"][0])
         age_pearson_values_ppg.append(results_data[run_i]["all_tasks_pearson_values_ppg"][0])
-        age_pearson_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_pearson_values_ecg_ppg_mean"][0])
+        # age_pearson_values_ecg_ppg.append(results_data[run_i]["all_tasks_pearson_values_ecg_ppg"][0])
+        # age_pearson_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_pearson_values_ecg_ppg_mean"][0])
         #
-        age_mae_values_ecg.append(results_data[run_i]["all_tasks_mae_values_ecg"][0])
+        # age_mae_values_ecg.append(results_data[run_i]["all_tasks_mae_values_ecg"][0])
         age_mae_values_ppg.append(results_data[run_i]["all_tasks_mae_values_ppg"][0])
-        age_mae_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_mae_values_ecg_ppg_mean"][0])
+        # age_mae_values_ecg_ppg.append(results_data[run_i]["all_tasks_mae_values_ecg_ppg"][0])
+        # age_mae_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_mae_values_ecg_ppg_mean"][0])
 
-        sex_auroc_values_ecg.append(results_data[run_i]["all_tasks_auroc_values_ecg"][0])
+        # sex_auroc_values_ecg.append(results_data[run_i]["all_tasks_auroc_values_ecg"][0])
         sex_auroc_values_ppg.append(results_data[run_i]["all_tasks_auroc_values_ppg"][0])
-        sex_auroc_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"][0])
+        # sex_auroc_values_ecg_ppg.append(results_data[run_i]["all_tasks_auroc_values_ecg_ppg"][0])
+        # sex_auroc_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"][0])
         #
-        sex_auprc_values_ecg.append(results_data[run_i]["all_tasks_auprc_values_ecg"][0])
+        # sex_auprc_values_ecg.append(results_data[run_i]["all_tasks_auprc_values_ecg"][0])
         sex_auprc_values_ppg.append(results_data[run_i]["all_tasks_auprc_values_ppg"][0])
-        sex_auprc_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"][0])
+        # sex_auprc_values_ecg_ppg.append(results_data[run_i]["all_tasks_auprc_values_ecg_ppg"][0])
+        # sex_auprc_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"][0])
 
-        dispo_auroc_values_ecg.append(results_data[run_i]["all_tasks_auroc_values_ecg"][1])
+        # dispo_auroc_values_ecg.append(results_data[run_i]["all_tasks_auroc_values_ecg"][1])
         dispo_auroc_values_ppg.append(results_data[run_i]["all_tasks_auroc_values_ppg"][1])
-        dispo_auroc_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"][1])
+        # dispo_auroc_values_ecg_ppg.append(results_data[run_i]["all_tasks_auroc_values_ecg_ppg"][1])
+        # dispo_auroc_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"][1])
         #
-        dispo_auprc_values_ecg.append(results_data[run_i]["all_tasks_auprc_values_ecg"][1])
+        # dispo_auprc_values_ecg.append(results_data[run_i]["all_tasks_auprc_values_ecg"][1])
         dispo_auprc_values_ppg.append(results_data[run_i]["all_tasks_auprc_values_ppg"][1])
-        dispo_auprc_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"][1])
+        # dispo_auprc_values_ecg_ppg.append(results_data[run_i]["all_tasks_auprc_values_ecg_ppg"][1])
+        # dispo_auprc_values_ecg_ppg_mean.append(results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"][1])
 
-        all11clstasks_auroc_values_ecg.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg"]))
+        # all11clstasks_auroc_values_ecg.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg"]))
         all11clstasks_auroc_values_ppg.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ppg"]))
-        all11clstasks_auroc_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"]))
+        # all11clstasks_auroc_values_ecg_ppg.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg_ppg"]))
+        # all11clstasks_auroc_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"]))
         #
-        all11clstasks_auprc_values_ecg.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg"]))
+        # all11clstasks_auprc_values_ecg.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg"]))
         all11clstasks_auprc_values_ppg.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ppg"]))
-        all11clstasks_auprc_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"]))
+        # all11clstasks_auprc_values_ecg_ppg.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg_ppg"]))
+        # all11clstasks_auprc_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"]))
 
-        icd10codetasks_auroc_values_ecg.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg"][2:]))
+        # icd10codetasks_auroc_values_ecg.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg"][2:]))
         icd10codetasks_auroc_values_ppg.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ppg"][2:]))
-        icd10codetasks_auroc_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"][2:]))
+        # icd10codetasks_auroc_values_ecg_ppg.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg_ppg"][2:]))
+        # icd10codetasks_auroc_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_auroc_values_ecg_ppg_mean"][2:]))
         #
-        icd10codetasks_auprc_values_ecg.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg"][2:]))
+        # icd10codetasks_auprc_values_ecg.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg"][2:]))
         icd10codetasks_auprc_values_ppg.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ppg"][2:]))
-        icd10codetasks_auprc_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"][2:]))
+        # icd10codetasks_auprc_values_ecg_ppg.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg_ppg"][2:]))
+        # icd10codetasks_auprc_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_auprc_values_ecg_ppg_mean"][2:]))
 
-        all9regtasks_pearson_values_ecg.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg"]))
+        # all9regtasks_pearson_values_ecg.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg"]))
         all9regtasks_pearson_values_ppg.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ppg"]))
-        all9regtasks_pearson_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg_ppg_mean"]))
+        # all9regtasks_pearson_values_ecg_ppg.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg_ppg"]))
+        # all9regtasks_pearson_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg_ppg_mean"]))
         #
-        all9regtasks_mae_values_ecg.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg"]))
+        # all9regtasks_mae_values_ecg.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg"]))
         all9regtasks_mae_values_ppg.append(np.mean(results_data[run_i]["all_tasks_mae_values_ppg"]))
-        all9regtasks_mae_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg_ppg_mean"]))
+        # all9regtasks_mae_values_ecg_ppg.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg_ppg"]))
+        # all9regtasks_mae_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg_ppg_mean"]))
 
-        labsregtasks_pearson_values_ecg.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg"][1:]))
+        # labsregtasks_pearson_values_ecg.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg"][1:]))
         labsregtasks_pearson_values_ppg.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ppg"][1:]))
-        labsregtasks_pearson_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg_ppg_mean"][1:]))
+        # labsregtasks_pearson_values_ecg_ppg.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg_ppg"][1:]))
+        # labsregtasks_pearson_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_pearson_values_ecg_ppg_mean"][1:]))
         #
-        labsregtasks_mae_values_ecg.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg"][1:]))
+        # labsregtasks_mae_values_ecg.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg"][1:]))
         labsregtasks_mae_values_ppg.append(np.mean(results_data[run_i]["all_tasks_mae_values_ppg"][1:]))
-        labsregtasks_mae_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg_ppg_mean"][1:]))
+        # labsregtasks_mae_values_ecg_ppg.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg_ppg"][1:]))
+        # labsregtasks_mae_values_ecg_ppg_mean.append(np.mean(results_data[run_i]["all_tasks_mae_values_ecg_ppg_mean"][1:]))
 
     print("train_prop: %.2f" % train_prop)
 
     print("########")
-    print("10min -- 1. Age regression -- ECG-only -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(age_pearson_values_ecg), np.std(age_pearson_values_ecg), np.mean(age_mae_values_ecg), np.std(age_mae_values_ecg)))
+    # print("10min -- 1. Age regression -- ECG-only -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(age_pearson_values_ecg), np.std(age_pearson_values_ecg), np.mean(age_mae_values_ecg), np.std(age_mae_values_ecg)))
     print("10min -- 1. Age regression -- PPG-only -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(age_pearson_values_ppg), np.std(age_pearson_values_ppg), np.mean(age_mae_values_ppg), np.std(age_mae_values_ppg)))
-    print("10min -- 1. Age regression -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(age_pearson_values_ecg_ppg_mean), np.std(age_pearson_values_ecg_ppg_mean), np.mean(age_mae_values_ecg_ppg_mean), np.std(age_mae_values_ecg_ppg_mean)))
+    # print("10min -- 1. Age regression -- ECG + PPG -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(age_pearson_values_ecg_ppg), np.std(age_pearson_values_ecg_ppg), np.mean(age_mae_values_ecg_ppg), np.std(age_mae_values_ecg_ppg)))
+    # print("10min -- 1. Age regression -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(age_pearson_values_ecg_ppg_mean), np.std(age_pearson_values_ecg_ppg_mean), np.mean(age_mae_values_ecg_ppg_mean), np.std(age_mae_values_ecg_ppg_mean)))
 
     print("########")
-    print("10min -- 2. Sex classification -- ECG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(sex_auroc_values_ecg), np.std(sex_auroc_values_ecg), np.mean(sex_auprc_values_ecg), np.std(sex_auprc_values_ecg)))
+    # print("10min -- 2. Sex classification -- ECG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(sex_auroc_values_ecg), np.std(sex_auroc_values_ecg), np.mean(sex_auprc_values_ecg), np.std(sex_auprc_values_ecg)))
     print("10min -- 2. Sex classification -- PPG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(sex_auroc_values_ppg), np.std(sex_auroc_values_ppg), np.mean(sex_auprc_values_ppg), np.std(sex_auprc_values_ppg)))
-    print("10min -- 2. Sex classification -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(sex_auroc_values_ecg_ppg_mean), np.std(sex_auroc_values_ecg_ppg_mean), np.mean(sex_auprc_values_ecg_ppg_mean), np.std(sex_auprc_values_ecg_ppg_mean)))
+    # print("10min -- 2. Sex classification -- ECG + PPG -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(sex_auroc_values_ecg_ppg), np.std(sex_auroc_values_ecg_ppg), np.mean(sex_auprc_values_ecg_ppg), np.std(sex_auprc_values_ecg_ppg)))
+    # print("10min -- 2. Sex classification -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(sex_auroc_values_ecg_ppg_mean), np.std(sex_auroc_values_ecg_ppg_mean), np.mean(sex_auprc_values_ecg_ppg_mean), np.std(sex_auprc_values_ecg_ppg_mean)))
 
     print("########")
-    print("10min -- 3. ED_dispo classification -- ECG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(dispo_auroc_values_ecg), np.std(dispo_auroc_values_ecg), np.mean(dispo_auprc_values_ecg), np.std(dispo_auprc_values_ecg)))
+    # print("10min -- 3. ED_dispo classification -- ECG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(dispo_auroc_values_ecg), np.std(dispo_auroc_values_ecg), np.mean(dispo_auprc_values_ecg), np.std(dispo_auprc_values_ecg)))
     print("10min -- 3. ED_dispo classification -- PPG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(dispo_auroc_values_ppg), np.std(dispo_auroc_values_ppg), np.mean(dispo_auprc_values_ppg), np.std(dispo_auprc_values_ppg)))
-    print("10min -- 3. ED_dispo classification -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(dispo_auroc_values_ecg_ppg_mean), np.std(dispo_auroc_values_ecg_ppg_mean), np.mean(dispo_auprc_values_ecg_ppg_mean), np.std(dispo_auprc_values_ecg_ppg_mean)))
+    # print("10min -- 3. ED_dispo classification -- ECG + PPG -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(dispo_auroc_values_ecg_ppg), np.std(dispo_auroc_values_ecg_ppg), np.mean(dispo_auprc_values_ecg_ppg), np.std(dispo_auprc_values_ecg_ppg)))
+    # print("10min -- 3. ED_dispo classification -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(dispo_auroc_values_ecg_ppg_mean), np.std(dispo_auroc_values_ecg_ppg_mean), np.mean(dispo_auprc_values_ecg_ppg_mean), np.std(dispo_auprc_values_ecg_ppg_mean)))
 
     print("########")
-    print("10min -- Mean over all 11 classification tasks -- ECG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(all11clstasks_auroc_values_ecg), np.std(all11clstasks_auroc_values_ecg), np.mean(all11clstasks_auprc_values_ecg), np.std(all11clstasks_auprc_values_ecg)))
+    # print("10min -- Mean over all 11 classification tasks -- ECG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(all11clstasks_auroc_values_ecg), np.std(all11clstasks_auroc_values_ecg), np.mean(all11clstasks_auprc_values_ecg), np.std(all11clstasks_auprc_values_ecg)))
     print("10min -- Mean over all 11 classification tasks -- PPG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(all11clstasks_auroc_values_ppg), np.std(all11clstasks_auroc_values_ppg), np.mean(all11clstasks_auprc_values_ppg), np.std(all11clstasks_auprc_values_ppg)))
-    print("10min -- Mean over all 11 classification tasks -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(all11clstasks_auroc_values_ecg_ppg_mean), np.std(all11clstasks_auroc_values_ecg_ppg_mean), np.mean(all11clstasks_auprc_values_ecg_ppg_mean), np.std(all11clstasks_auprc_values_ecg_ppg_mean)))
+    # print("10min -- Mean over all 11 classification tasks -- ECG + PPG -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(all11clstasks_auroc_values_ecg_ppg), np.std(all11clstasks_auroc_values_ecg_ppg), np.mean(all11clstasks_auprc_values_ecg_ppg), np.std(all11clstasks_auprc_values_ecg_ppg)))
+    # print("10min -- Mean over all 11 classification tasks -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(all11clstasks_auroc_values_ecg_ppg_mean), np.std(all11clstasks_auroc_values_ecg_ppg_mean), np.mean(all11clstasks_auprc_values_ecg_ppg_mean), np.std(all11clstasks_auprc_values_ecg_ppg_mean)))
 
     print("########")
-    print("10min -- Mean over the 9 ICD-10 code classification tasks -- ECG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(icd10codetasks_auroc_values_ecg), np.std(icd10codetasks_auroc_values_ecg), np.mean(icd10codetasks_auprc_values_ecg), np.std(icd10codetasks_auprc_values_ecg)))
+    # print("10min -- Mean over the 9 ICD-10 code classification tasks -- ECG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(icd10codetasks_auroc_values_ecg), np.std(icd10codetasks_auroc_values_ecg), np.mean(icd10codetasks_auprc_values_ecg), np.std(icd10codetasks_auprc_values_ecg)))
     print("10min -- Mean over the 9 ICD-10 code classification tasks -- PPG-only -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(icd10codetasks_auroc_values_ppg), np.std(icd10codetasks_auroc_values_ppg), np.mean(icd10codetasks_auprc_values_ppg), np.std(icd10codetasks_auprc_values_ppg)))
-    print("10min -- Mean over the 9 ICD-10 code classification tasks -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(icd10codetasks_auroc_values_ecg_ppg_mean), np.std(icd10codetasks_auroc_values_ecg_ppg_mean), np.mean(icd10codetasks_auprc_values_ecg_ppg_mean), np.std(icd10codetasks_auprc_values_ecg_ppg_mean)))
+    # print("10min -- Mean over the 9 ICD-10 code classification tasks -- ECG + PPG -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(icd10codetasks_auroc_values_ecg_ppg), np.std(icd10codetasks_auroc_values_ecg_ppg), np.mean(icd10codetasks_auprc_values_ecg_ppg), np.std(icd10codetasks_auprc_values_ecg_ppg)))
+    # print("10min -- Mean over the 9 ICD-10 code classification tasks -- ECG-only + PPG-only (mean of features) -- AUROC: %.3f +/- %.4f -- AUPRC: %.3f +/- %.4f" % (np.mean(icd10codetasks_auroc_values_ecg_ppg_mean), np.std(icd10codetasks_auroc_values_ecg_ppg_mean), np.mean(icd10codetasks_auprc_values_ecg_ppg_mean), np.std(icd10codetasks_auprc_values_ecg_ppg_mean)))
 
     print("########")
-    print("10min -- Mean over all 9 regression tasks -- ECG-only -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(all9regtasks_pearson_values_ecg), np.std(all9regtasks_pearson_values_ecg), np.mean(all9regtasks_mae_values_ecg), np.std(all9regtasks_mae_values_ecg)))
+    # print("10min -- Mean over all 9 regression tasks -- ECG-only -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(all9regtasks_pearson_values_ecg), np.std(all9regtasks_pearson_values_ecg), np.mean(all9regtasks_mae_values_ecg), np.std(all9regtasks_mae_values_ecg)))
     print("10min -- Mean over all 9 regression tasks -- PPG-only -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(all9regtasks_pearson_values_ppg), np.std(all9regtasks_pearson_values_ppg), np.mean(all9regtasks_mae_values_ppg), np.std(all9regtasks_mae_values_ppg)))
-    print("10min -- Mean over all 9 regression tasks -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(all9regtasks_pearson_values_ecg_ppg_mean), np.std(all9regtasks_pearson_values_ecg_ppg_mean), np.mean(all9regtasks_mae_values_ecg_ppg_mean), np.std(all9regtasks_mae_values_ecg_ppg_mean)))
+    # print("10min -- Mean over all 9 regression tasks -- ECG + PPG -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(all9regtasks_pearson_values_ecg_ppg), np.std(all9regtasks_pearson_values_ecg_ppg), np.mean(all9regtasks_mae_values_ecg_ppg), np.std(all9regtasks_mae_values_ecg_ppg)))
+    # print("10min -- Mean over all 9 regression tasks -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(all9regtasks_pearson_values_ecg_ppg_mean), np.std(all9regtasks_pearson_values_ecg_ppg_mean), np.mean(all9regtasks_mae_values_ecg_ppg_mean), np.std(all9regtasks_mae_values_ecg_ppg_mean)))
 
     print("########")
-    print("10min -- Mean over the 8 labs regression tasks -- ECG-only -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(labsregtasks_pearson_values_ecg), np.std(labsregtasks_pearson_values_ecg), np.mean(labsregtasks_mae_values_ecg), np.std(labsregtasks_mae_values_ecg)))
+    # print("10min -- Mean over the 8 labs regression tasks -- ECG-only -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(labsregtasks_pearson_values_ecg), np.std(labsregtasks_pearson_values_ecg), np.mean(labsregtasks_mae_values_ecg), np.std(labsregtasks_mae_values_ecg)))
     print("10min -- Mean over the 8 labs regression tasks -- PPG-only -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(labsregtasks_pearson_values_ppg), np.std(labsregtasks_pearson_values_ppg), np.mean(labsregtasks_mae_values_ppg), np.std(labsregtasks_mae_values_ppg)))
-    print("10min -- Mean over the 8 labs regression tasks -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(labsregtasks_pearson_values_ecg_ppg_mean), np.std(labsregtasks_pearson_values_ecg_ppg_mean), np.mean(labsregtasks_mae_values_ecg_ppg_mean), np.std(labsregtasks_mae_values_ecg_ppg_mean)))
+    # print("10min -- Mean over the 8 labs regression tasks -- ECG + PPG -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(labsregtasks_pearson_values_ecg_ppg), np.std(labsregtasks_pearson_values_ecg_ppg), np.mean(labsregtasks_mae_values_ecg_ppg), np.std(labsregtasks_mae_values_ecg_ppg)))
+    # print("10min -- Mean over the 8 labs regression tasks -- ECG-only + PPG-only (mean of features) -- Pearson: %.3f +/- %.4f -- MAE: %.3f +/- %.4f" % (np.mean(labsregtasks_pearson_values_ecg_ppg_mean), np.std(labsregtasks_pearson_values_ecg_ppg_mean), np.mean(labsregtasks_mae_values_ecg_ppg_mean), np.std(labsregtasks_mae_values_ecg_ppg_mean)))
 
 
 
