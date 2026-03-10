@@ -27,12 +27,6 @@ model_name_to_print_name["ecg-domain-features-concat-ppg-domain-features-60sec"]
 print("Model name ---- Perc ---- modality --------------- Age reg  Sex cls  ED_dispo cls  Labs reg  ICD-10 cls")
 print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
 
-models = []
-models_mean_perf_age = []
-models_mean_perf_sex = []
-models_mean_perf_dispo = []
-models_mean_perf_labs = []
-models_mean_perf_icd10 = []
 for model_name in model_names:
     with open(signalmcmed_dir_path + "/evaluation_test_10min_%s/all_results_data.pkl" % model_name, "rb") as f:
         all_results_data = pickle.load(f)
@@ -48,7 +42,7 @@ for model_name in model_names:
         age_pearson_means_ecg_ppg = []
         #
         labsregtasks_pearson_means_ecg_ppg = []
-        for train_prop in train_props:
+        for run_i in range(number_of_runs):
             sex_auroc_values_ecg_ppg = []
             #
             dispo_auroc_values_ecg_ppg = []
@@ -59,7 +53,7 @@ for model_name in model_names:
             age_pearson_values_ecg_ppg = []
             #
             labsregtasks_pearson_values_ecg_ppg = []
-            for run_i in range(number_of_runs):
+            for train_prop in train_props:
                 sex_auroc_values_ecg_ppg.append(all_results_data[train_prop][run_i]["all_tasks_auroc_values_ecg_ppg"][0])
 
                 dispo_auroc_values_ecg_ppg.append(all_results_data[train_prop][run_i]["all_tasks_auroc_values_ecg_ppg"][1])
@@ -80,15 +74,8 @@ for model_name in model_names:
 
             labsregtasks_pearson_means_ecg_ppg.append(np.mean(labsregtasks_pearson_values_ecg_ppg))
 
-        print("%s ---- Mean(100, 50, 25, 10) ---- ECG + PPG --------------   &%.3f    &%.3f    &%.3f    &%.3f    &%.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ecg_ppg), np.mean(sex_auroc_means_ecg_ppg), np.mean(dispo_auroc_means_ecg_ppg), np.mean(labsregtasks_pearson_means_ecg_ppg), np.mean(icd10codetasks_auroc_means_ecg_ppg)))
+        print("%s ---- Mean(100, 50, 25, 10) ---- ECG + PPG --------------   &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ecg_ppg), np.std(age_pearson_means_ecg_ppg), np.mean(sex_auroc_means_ecg_ppg), np.std(sex_auroc_means_ecg_ppg), np.mean(dispo_auroc_means_ecg_ppg), np.std(dispo_auroc_means_ecg_ppg), np.mean(labsregtasks_pearson_means_ecg_ppg), np.std(labsregtasks_pearson_means_ecg_ppg), np.mean(icd10codetasks_auroc_means_ecg_ppg), np.std(icd10codetasks_auroc_means_ecg_ppg)))
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-        models.append(model_name_to_print_name[model_name] + " -- ECG + PPG")
-        models_mean_perf_age.append(np.mean(age_pearson_means_ecg_ppg))
-        models_mean_perf_sex.append(np.mean(sex_auroc_means_ecg_ppg))
-        models_mean_perf_dispo.append(np.mean(dispo_auroc_means_ecg_ppg))
-        models_mean_perf_labs.append(np.mean(labsregtasks_pearson_means_ecg_ppg))
-        models_mean_perf_icd10.append(np.mean(icd10codetasks_auroc_means_ecg_ppg))
 
 
     elif model_name == "ecg-domain-features":
@@ -102,7 +89,7 @@ for model_name in model_names:
         age_pearson_means_ecg = []
         #
         labsregtasks_pearson_means_ecg = []
-        for train_prop in train_props:
+        for run_i in range(number_of_runs):
             sex_auroc_values_ecg = []
             #
             dispo_auroc_values_ecg = []
@@ -113,7 +100,7 @@ for model_name in model_names:
             age_pearson_values_ecg = []
             #
             labsregtasks_pearson_values_ecg = []
-            for run_i in range(number_of_runs):
+            for train_prop in train_props:
                 sex_auroc_values_ecg.append(all_results_data[train_prop][run_i]["all_tasks_auroc_values_ecg"][0])
 
                 dispo_auroc_values_ecg.append(all_results_data[train_prop][run_i]["all_tasks_auroc_values_ecg"][1])
@@ -134,15 +121,8 @@ for model_name in model_names:
 
             labsregtasks_pearson_means_ecg.append(np.mean(labsregtasks_pearson_values_ecg))
 
-        print("%s ---- Mean(100, 50, 25, 10) ---- ECG-only --------------    &%.3f    &%.3f    &%.3f    &%.3f    &%.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ecg), np.mean(sex_auroc_means_ecg), np.mean(dispo_auroc_means_ecg), np.mean(labsregtasks_pearson_means_ecg), np.mean(icd10codetasks_auroc_means_ecg)))
+        print("%s ---- Mean(100, 50, 25, 10) ---- ECG-only --------------    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ecg), np.std(age_pearson_means_ecg), np.mean(sex_auroc_means_ecg), np.std(sex_auroc_means_ecg), np.mean(dispo_auroc_means_ecg), np.std(dispo_auroc_means_ecg), np.mean(labsregtasks_pearson_means_ecg), np.std(labsregtasks_pearson_means_ecg), np.mean(icd10codetasks_auroc_means_ecg), np.std(icd10codetasks_auroc_means_ecg)))
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-        models.append(model_name_to_print_name[model_name] + " -- ECG-only")
-        models_mean_perf_age.append(np.mean(age_pearson_means_ecg))
-        models_mean_perf_sex.append(np.mean(sex_auroc_means_ecg))
-        models_mean_perf_dispo.append(np.mean(dispo_auroc_means_ecg))
-        models_mean_perf_labs.append(np.mean(labsregtasks_pearson_means_ecg))
-        models_mean_perf_icd10.append(np.mean(icd10codetasks_auroc_means_ecg))
 
 
     elif model_name == "ppg-domain-features-60sec":
@@ -156,7 +136,7 @@ for model_name in model_names:
         age_pearson_means_ppg = []
         #
         labsregtasks_pearson_means_ppg = []
-        for train_prop in train_props:
+        for run_i in range(number_of_runs):
             sex_auroc_values_ppg = []
             #
             dispo_auroc_values_ppg = []
@@ -167,7 +147,7 @@ for model_name in model_names:
             age_pearson_values_ppg = []
             #
             labsregtasks_pearson_values_ppg = []
-            for run_i in range(number_of_runs):
+            for train_prop in train_props:
                 sex_auroc_values_ppg.append(all_results_data[train_prop][run_i]["all_tasks_auroc_values_ppg"][0])
 
                 dispo_auroc_values_ppg.append(all_results_data[train_prop][run_i]["all_tasks_auroc_values_ppg"][1])
@@ -188,15 +168,8 @@ for model_name in model_names:
 
             labsregtasks_pearson_means_ppg.append(np.mean(labsregtasks_pearson_values_ppg))
 
-        print("%s ---- Mean(100, 50, 25, 10) ---- PPG-only --------------    &%.3f    &%.3f    &%.3f    &%.3f    &%.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ppg), np.mean(sex_auroc_means_ppg), np.mean(dispo_auroc_means_ppg), np.mean(labsregtasks_pearson_means_ppg), np.mean(icd10codetasks_auroc_means_ppg)))
+        print("%s ---- Mean(100, 50, 25, 10) ---- PPG-only --------------    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ppg), np.std(age_pearson_means_ppg), np.mean(sex_auroc_means_ppg), np.std(sex_auroc_means_ppg), np.mean(dispo_auroc_means_ppg), np.std(dispo_auroc_means_ppg), np.mean(labsregtasks_pearson_means_ppg), np.std(labsregtasks_pearson_means_ppg), np.mean(icd10codetasks_auroc_means_ppg), np.std(icd10codetasks_auroc_means_ppg)))
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-        models.append(model_name_to_print_name[model_name] + " -- PPG-only")
-        models_mean_perf_age.append(np.mean(age_pearson_means_ppg))
-        models_mean_perf_sex.append(np.mean(sex_auroc_means_ppg))
-        models_mean_perf_dispo.append(np.mean(dispo_auroc_means_ppg))
-        models_mean_perf_labs.append(np.mean(labsregtasks_pearson_means_ppg))
-        models_mean_perf_icd10.append(np.mean(icd10codetasks_auroc_means_ppg))
 
 
     else:
@@ -220,7 +193,7 @@ for model_name in model_names:
         labsregtasks_pearson_means_ecg = []
         labsregtasks_pearson_means_ppg = []
         labsregtasks_pearson_means_ecg_ppg_mean = []
-        for train_prop in train_props:
+        for run_i in range(number_of_runs):
             sex_auroc_values_ecg = []
             sex_auroc_values_ppg = []
             sex_auroc_values_ecg_ppg_mean = []
@@ -241,7 +214,7 @@ for model_name in model_names:
             labsregtasks_pearson_values_ecg = []
             labsregtasks_pearson_values_ppg = []
             labsregtasks_pearson_values_ecg_ppg_mean = []
-            for run_i in range(number_of_runs):
+            for train_prop in train_props:
                 sex_auroc_values_ecg.append(all_results_data[train_prop][run_i]["all_tasks_auroc_values_ecg"][0])
                 sex_auroc_values_ppg.append(all_results_data[train_prop][run_i]["all_tasks_auroc_values_ppg"][0])
                 sex_auroc_values_ecg_ppg_mean.append(all_results_data[train_prop][run_i]["all_tasks_auroc_values_ecg_ppg_mean"][0])
@@ -282,85 +255,7 @@ for model_name in model_names:
             labsregtasks_pearson_means_ppg.append(np.mean(labsregtasks_pearson_values_ppg))
             labsregtasks_pearson_means_ecg_ppg_mean.append(np.mean(labsregtasks_pearson_values_ecg_ppg_mean))
 
-        print("%s ---- Mean(100, 50, 25, 10) ---- ECG-only --------------    &%.3f    &%.3f    &%.3f    &%.3f    &%.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ecg), np.mean(sex_auroc_means_ecg), np.mean(dispo_auroc_means_ecg), np.mean(labsregtasks_pearson_means_ecg), np.mean(icd10codetasks_auroc_means_ecg)))
-        print("%s ---- Mean(100, 50, 25, 10) ---- PPG-only ---------------   &%.3f    &%.3f    &%.3f    &%.3f    &%.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ppg), np.mean(sex_auroc_means_ppg), np.mean(dispo_auroc_means_ppg), np.mean(labsregtasks_pearson_means_ppg), np.mean(icd10codetasks_auroc_means_ppg)))
-        print("%s ---- Mean(100, 50, 25, 10) ---- ECG-only + PPG-only ----   &%.3f    &%.3f    &%.3f    &%.3f    &%.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ecg_ppg_mean), np.mean(sex_auroc_means_ecg_ppg_mean), np.mean(dispo_auroc_means_ecg_ppg_mean), np.mean(labsregtasks_pearson_means_ecg_ppg_mean), np.mean(icd10codetasks_auroc_means_ecg_ppg_mean)))
+        print("%s ---- Mean(100, 50, 25, 10) ---- ECG-only --------------    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ecg), np.std(age_pearson_means_ecg), np.mean(sex_auroc_means_ecg), np.std(sex_auroc_means_ecg), np.mean(dispo_auroc_means_ecg), np.std(dispo_auroc_means_ecg), np.mean(labsregtasks_pearson_means_ecg), np.std(labsregtasks_pearson_means_ecg), np.mean(icd10codetasks_auroc_means_ecg), np.std(icd10codetasks_auroc_means_ecg)))
+        print("%s ---- Mean(100, 50, 25, 10) ---- PPG-only ---------------   &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ppg), np.std(age_pearson_means_ppg), np.mean(sex_auroc_means_ppg), np.std(sex_auroc_means_ppg), np.mean(dispo_auroc_means_ppg), np.std(dispo_auroc_means_ppg), np.mean(labsregtasks_pearson_means_ppg), np.std(labsregtasks_pearson_means_ppg), np.mean(icd10codetasks_auroc_means_ppg), np.std(icd10codetasks_auroc_means_ppg)))
+        print("%s ---- Mean(100, 50, 25, 10) ---- ECG-only + PPG-only ----   &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f    &%.3f $\pm$ %.3f\\\\" % (model_name_to_print_name[model_name], np.mean(age_pearson_means_ecg_ppg_mean), np.std(age_pearson_means_ecg_ppg_mean), np.mean(sex_auroc_means_ecg_ppg_mean), np.std(sex_auroc_means_ecg_ppg_mean), np.mean(dispo_auroc_means_ecg_ppg_mean), np.std(dispo_auroc_means_ecg_ppg_mean), np.mean(labsregtasks_pearson_means_ecg_ppg_mean), np.std(labsregtasks_pearson_means_ecg_ppg_mean), np.mean(icd10codetasks_auroc_means_ecg_ppg_mean), np.std(icd10codetasks_auroc_means_ecg_ppg_mean)))
         print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-        models.append(model_name_to_print_name[model_name] + " -- ECG-only")
-        models_mean_perf_age.append(np.mean(age_pearson_means_ecg))
-        models_mean_perf_sex.append(np.mean(sex_auroc_means_ecg))
-        models_mean_perf_dispo.append(np.mean(dispo_auroc_means_ecg))
-        models_mean_perf_labs.append(np.mean(labsregtasks_pearson_means_ecg))
-        models_mean_perf_icd10.append(np.mean(icd10codetasks_auroc_means_ecg))
-
-        models.append(model_name_to_print_name[model_name] + " -- PPG-only")
-        models_mean_perf_age.append(np.mean(age_pearson_means_ppg))
-        models_mean_perf_sex.append(np.mean(sex_auroc_means_ppg))
-        models_mean_perf_dispo.append(np.mean(dispo_auroc_means_ppg))
-        models_mean_perf_labs.append(np.mean(labsregtasks_pearson_means_ppg))
-        models_mean_perf_icd10.append(np.mean(icd10codetasks_auroc_means_ppg))
-
-        models.append(model_name_to_print_name[model_name] + " -- ECG-only + PPG-only")
-        models_mean_perf_age.append(np.mean(age_pearson_means_ecg_ppg_mean))
-        models_mean_perf_sex.append(np.mean(sex_auroc_means_ecg_ppg_mean))
-        models_mean_perf_dispo.append(np.mean(dispo_auroc_means_ecg_ppg_mean))
-        models_mean_perf_labs.append(np.mean(labsregtasks_pearson_means_ecg_ppg_mean))
-        models_mean_perf_icd10.append(np.mean(icd10codetasks_auroc_means_ecg_ppg_mean))
-
-print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-print(models)
-
-sorted_pairs_age = sorted(zip(models, models_mean_perf_age), key=lambda x: x[1], reverse=True)
-sorted_pairs_sex = sorted(zip(models, models_mean_perf_sex), key=lambda x: x[1], reverse=True)
-sorted_pairs_dispo = sorted(zip(models, models_mean_perf_dispo), key=lambda x: x[1], reverse=True)
-sorted_pairs_labs = sorted(zip(models, models_mean_perf_labs), key=lambda x: x[1], reverse=True)
-sorted_pairs_icd10 = sorted(zip(models, models_mean_perf_icd10), key=lambda x: x[1], reverse=True)
-
-model_to_ranks = {}
-for model in models:
-    model_to_ranks[model] = []
-
-print("Age reg:")
-for i, (model, perf) in enumerate(sorted_pairs_age):
-    print("%d ---- %s ---- %.3f" % (i+1, model, perf))
-    model_to_ranks[model].append(i+1)
-print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-print("Sex cls:")
-for i, (model, perf) in enumerate(sorted_pairs_sex):
-    print("%d ---- %s ---- %.3f" % (i+1, model, perf))
-    model_to_ranks[model].append(i+1)
-print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-print("ED_dispo cls:")
-for i, (model, perf) in enumerate(sorted_pairs_dispo):
-    print("%d ---- %s ---- %.3f" % (i+1, model, perf))
-    model_to_ranks[model].append(i+1)
-print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-print("Labs reg:")
-for i, (model, perf) in enumerate(sorted_pairs_labs):
-    print("%d ---- %s ---- %.3f" % (i+1, model, perf))
-    model_to_ranks[model].append(i+1)
-print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-print("ICD-10 cls:")
-for i, (model, perf) in enumerate(sorted_pairs_icd10):
-    print("%d ---- %s ---- %.3f" % (i+1, model, perf))
-    model_to_ranks[model].append(i+1)
-print("{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}")
-
-model_to_mean_rank = {}
-for model in models:
-    model_to_mean_rank[model] = np.mean(model_to_ranks[model])
-
-sorted_mean_ranks = sorted(model_to_mean_rank.items(), key=lambda x: x[1])
-
-print("Mean rank across the 5 tasks:")
-for i, (model, mean_rank) in enumerate(sorted_mean_ranks):
-    print("%d    &%s        &%d,%d,%d,%d,%d        &\hspace{13.0mm}%.1f\\\\" % (i+1, model, model_to_ranks[model][0], model_to_ranks[model][1], model_to_ranks[model][2], model_to_ranks[model][3], model_to_ranks[model][4], mean_rank))
