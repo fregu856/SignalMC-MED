@@ -20,7 +20,7 @@ model_name_to_print_name["ecgfounder"] = "ECGFounder"
 model_name_to_print_name["d-beta"] = "D-BETA"
 model_name_to_print_name["papagei"] = "PaPaGei"
 model_name_to_print_name["csfm-base"] = "CSFM-base"
-model_name_to_print_name["ppg-domain-features-60sec"] = "PPG Domain Features"
+model_name_to_print_name["ppg-domain-features-60sec"] = "PPG Domain Features - 60sec"
 
 
 model_name_to_all11clstasks_auroc_means_ppg = {}

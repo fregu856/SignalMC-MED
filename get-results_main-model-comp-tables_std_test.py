@@ -21,7 +21,7 @@ model_name_to_print_name["d-beta"] = "D-BETA"
 model_name_to_print_name["papagei"] = "PaPaGei"
 model_name_to_print_name["csfm-base"] = "CSFM-base"
 model_name_to_print_name["ecg-domain-features"] = "ECG Domain Features"
-model_name_to_print_name["ppg-domain-features-60sec"] = "PPG Domain Features"
+model_name_to_print_name["ppg-domain-features-60sec"] = "PPG Domain Features - 60sec"
 model_name_to_print_name["ecg-domain-features-concat-ppg-domain-features-60sec"] = "ECG Domain Features + PPG Domain Features - 60sec (concat)"
 
 
