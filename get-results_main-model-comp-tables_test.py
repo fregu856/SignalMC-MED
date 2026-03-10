@@ -2,14 +2,14 @@ import numpy as np
 import pickle
 
 
-signalmcmed_dir_path = "/well/clifton/users/egr649/data/signalmc-med" ###########################################################
+signalmcmed_dir_path = "/well/clifton/users/egr649/data/signalmc-med" ############################################################
 
 
 train_props = [1.0, 0.50, 0.25, 0.10]
 number_of_runs = 5
 
 
-models_names = ["moment-base", "chronos-bolt-small", "xecg-10min", "ecgfounder", "d-beta", "papagei", "csfm-base", "ecg-domain-features", "ppg-domain-features-60sec", "ecg-domain-features-concat-ppg-domain-features-60sec"]
+model_names = ["moment-base", "chronos-bolt-small", "xecg-10min", "ecgfounder", "d-beta", "papagei", "csfm-base", "ecg-domain-features", "ppg-domain-features-60sec", "ecg-domain-features-concat-ppg-domain-features-60sec"]
 
 model_name_to_print_name = {}
 model_name_to_print_name["moment-base"] = "MOMENT-base"
@@ -33,7 +33,7 @@ models_mean_perf_sex = []
 models_mean_perf_dispo = []
 models_mean_perf_labs = []
 models_mean_perf_icd10 = []
-for model_name in models_names:
+for model_name in model_names:
     with open(signalmcmed_dir_path + "/evaluation_test_10min_%s/all_results_data.pkl" % model_name, "rb") as f:
         all_results_data = pickle.load(f)
 
