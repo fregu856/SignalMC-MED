@@ -3,7 +3,7 @@
 ![overview image](overview.png)
 
 Official implementation of the paper: \
-**SignalMC-MED: A Multimodal Benchmark for Evaluating Biosignal Foundation Models on Single-Lead ECG and PPG**, 2026 [[arXiv]](https://arxiv.org/abs/2603.09940) [[project (TODO!)]](https://github.com/fregu856/SignalMC-MED). \
+**SignalMC-MED: A Multimodal Benchmark for Evaluating Biosignal Foundation Models on Single-Lead ECG and PPG**, 2026 [[arXiv]](https://arxiv.org/abs/2603.09940). \
 [Fredrik K. Gustafsson](http://www.fregu856.com/), [Xiao Gu](https://scholar.google.com/citations?user=xpXBs0gAAAAJ&hl=en), [Mattia Carletti](https://scholar.google.com/citations?user=G8UFCW4AAAAJ&hl=en), [Patitapaban Palo](https://scholar.google.com/citations?user=DGIp0NwAAAAJ&hl=en), [David W. Eyre](https://scholar.google.com/citations?user=mSEZ9CEAAAAJ&hl=en), [David A. Clifton](https://scholar.google.com/citations?user=mFN2KJ4AAAAJ&hl=en). \
 _Biosignal foundation models (FMs) have shown promise for clinical prediction, yet systematic evaluation on long-duration multimodal data remains limited. We introduce SignalMC-MED, a benchmark of 22,256 emergency department visits with synchronized 10-minute single-lead ECG and PPG, evaluating FMs across 20 clinically relevant tasks. Using this benchmark, we compare representative time-series and biosignal FMs across ECG-only, PPG-only, and ECG + PPG settings. Domain-specific biosignal FMs outperform general time-series models, multimodal ECG + PPG fusion and longer signal segments consistently improve performance, larger model variants do not reliably outperform smaller ones, and hand-crafted ECG domain features remain strong complementary baselines._
 
