@@ -14,6 +14,31 @@ If you find this work useful, please consider citing:
 TODO!
 ```
 
+Please also cite the original MC-MED dataset:
+```
+@article{kansal2025mc,
+  title={{MC-MED}, multimodal clinical monitoring in the emergency department},
+  author={Kansal, Aman and Chen, Emma and Jin, Boyang Tom and Rajpurkar, Pranav and Kim, David A},
+  journal={Scientific Data},
+  volume={12},
+  number={1},
+  pages={1094},
+  year={2025},
+  publisher={Nature Publishing Group UK London}
+}
+
+@article{PhysioNet-mc-med-1.0.1,
+  author = {Kansal, Aman and Chen, Emma and Jin, Tom and Rajpurkar, Pranav and Kim, David},
+  title = {{Multimodal Clinical Monitoring in the Emergency Department (MC-MED)}},
+  journal = {{PhysioNet}},
+  year = {2025},
+  month = sep,
+  note = {Version 1.0.1},
+  doi = {10.13026/wvyw-g663},
+  url = {https://doi.org/10.13026/wvyw-g663}
+}
+```
+
 
 
 
