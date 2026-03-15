@@ -9,7 +9,12 @@ _Biosignal foundation models (FMs) have shown promise for clinical prediction, y
 
 If you find this work useful, please consider citing:
 ```
-TODO!
+@article{gustafsson2026signalmcmed,
+  title={SignalMC-MED: A Multimodal Benchmark for Evaluating Biosignal Foundation Models on Single-Lead ECG and PPG},
+  author={Gustafsson, Fredrik K and Gu, Xiao and Carletti, Mattia and Palo, Patitapaban and Eyre, David W and Clifton, David A},
+  journal={arXiv preprint arXiv:2603.09940},
+  year={2026}
+}
 ```
 
 Please also cite the original MC-MED dataset:
